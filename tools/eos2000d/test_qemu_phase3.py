@@ -1,9 +1,10 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 from tools.eos2000d.qemu_eos_patch import patch_texts
-from tools.eos2000d.qemu_smoke import find_ordered_markers
+from tools.eos2000d.qemu_smoke import find_ordered_markers, run_command
 from tools.eos2000d.qemu_workdir import camera_dir, prepare
 
 
@@ -57,6 +58,18 @@ class QemuSmokeTests(unittest.TestCase):
     def test_empty_markers_fail(self):
         ok, _ = find_ordered_markers("anything", [])
         self.assertFalse(ok)
+
+    def test_runner_captures_output_before_timeout(self):
+        output, _return_code, timed_out = run_command(
+            [
+                sys.executable,
+                "-c",
+                "import time; print('canon start', flush=True); time.sleep(1)",
+            ],
+            0.1,
+        )
+        self.assertTrue(timed_out)
+        self.assertIn("canon start", output)
 
 
 class QemuWorkdirTests(unittest.TestCase):
