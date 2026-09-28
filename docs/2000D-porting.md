@@ -20,16 +20,28 @@ The older experimental fork contained notes claiming a successful ROM dump, a fi
 
 ## Current status
 
-Current milestone: **Phase 0 — Repository baseline**
+Current active milestone: **Phase 2 — Reverse engineering / minimum firmware interface**
 
-The repository is not yet a functioning 2000D port. In particular:
+The repository is not yet a functioning 2000D port, but the project has moved beyond the repository-baseline stage.
 
-- there is no verified `platform/2000D.130/` implementation;
-- the correct DryOS task/task-attribute layouts still need to be established from firmware 1.3.0;
-- cache-hack patch points and other firmware addresses still need ROM-backed verification;
-- `minimal/hello-world` has not yet been demonstrated for this camera;
-- QEMU execution has not yet been demonstrated for this camera;
-- no physical-camera execution is approved at this stage.
+Completed groundwork:
+
+- Phase 0 repository synchronization/documentation/CI;
+- a safe `platform/2000D.130/` skeleton;
+- a current-generation minimal-build path, validated on supported camera 1100D.105;
+- Phase 2 ROM-manifest/probe tooling and reverse-engineering documentation.
+
+Still unresolved:
+
+- the canonical firmware 1.3.0 ROM image and SHA-256;
+- the exact 1.3.0 memory map and cache-hack patch locations;
+- the exact DryOS task/task-attribute layouts;
+- the minimum verified 1.3.0 stubs;
+- the first real 2000D.130 minimal payload;
+- QEMU execution;
+- physical-camera execution.
+
+Phase 1 issues #5–#7 remain open because their evidence must come from Phase 2. This is an intentional dependency, not a reason to pause Phase 2.
 
 See [2000D-issue-backlog.md](2000D-issue-backlog.md) and the GitHub issue tracker for the staged implementation plan.
 
@@ -72,16 +84,16 @@ Typical Linux/WSL dependencies:
 - `git`
 - `zip`
 
-A reference supported-camera build used by Phase 0 CI is:
+A reference supported-camera build used by CI is:
 
 ```bash
 make -C platform/1100D.105 clean
 make -C platform/1100D.105 FATAL_WARNINGS=y -j2
 ```
 
-This reference build only checks that the synchronized upstream baseline and toolchain still work. It does **not** indicate that the 2000D target exists or is safe.
+This reference build checks that the synchronized upstream baseline and toolchain still work. CI also validates the 2000D platform skeleton and builds the modernized minimal/hello-world path on 1100D.105.
 
-When a real 2000D target is added, the first intended build target is `minimal/hello-world`, not the full Magic Lantern feature set.
+The first intended executable 2000D milestone is smaller than the graphical hello-world: a verified LED-only diagnostic using the minimum possible 1.3.0 firmware interface. The richer hello-world follows after task/display dependencies are verified.
 
 ### Important build-safety note
 
@@ -118,9 +130,11 @@ An address from another model is never sufficient evidence on its own.
 
 ## Reference cameras
 
-The EOS 1300D / Rebel T6 is a useful **late DIGIC 4+ structural reference** for some reverse-engineering patterns.
+The historical **EOS 2000D firmware 1.1.0** port is the closest same-body reference and should be used as a reverse-engineering index. Its firmware addresses are not valid evidence for 1.3.0 on their own.
 
-It is not an address source.
+The EOS 1300D / Rebel T6 is also a useful **late DIGIC 4+ structural reference** for cross-checking patterns.
+
+Neither reference is an address source for firmware 1.3.0.
 
 Likewise, the EOS 200D / Rebel SL2 is a different DIGIC-generation camera and must not be confused with the EOS 2000D / Rebel T7 because of the similar product name.
 
@@ -189,11 +203,15 @@ Exit only when:
 
 ### Phase 1 — Platform skeleton
 
-Exit only when:
+Structural Phase 1 work is complete: `platform/2000D.130/` exists and the minimal-build infrastructure has been repaired.
 
-- `platform/2000D.130/` exists;
-- architecture/memory/task layout decisions are evidence-backed;
-- `minimal/hello-world` compiles with no guessed addresses.
+The remaining Phase 1 acceptance criteria are evidence-dependent and intentionally feed from Phase 2:
+
+- architecture is established, but memory/boot constants still need 1.3.0 ROM evidence;
+- task/task_attr layouts still need 1.3.0 ROM evidence;
+- the 2000D minimal payload still needs verified boot constants and stubs.
+
+Those issues remain open until Phase 2 supplies the evidence.
 
 ### Phase 2 — Minimum firmware interface
 
@@ -218,6 +236,13 @@ Exit only when:
 Exit only after repeated minimal physical-camera boots and documented recovery behavior.
 
 Later phases then bring up core ML services, the restricted menu, and individual features one subsystem at a time.
+
+## Phase 2 analysis documents
+
+- [ROM acquisition and manifest workflow](2000D-130/rom-analysis.md)
+- [Cache-hack candidate map](2000D-130/cache-hack-map.md)
+- [Early diagnostic strategy](2000D-130/early-diagnostics.md)
+- [Minimum stub checklist](2000D-130/minimal-stubs.md)
 
 ## Project tracking
 
