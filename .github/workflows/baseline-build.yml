@@ -44,6 +44,9 @@ jobs:
           python3 --version
           make --version
 
+      - name: Test EOS 2000D ROM analysis tooling
+        run: python3 -m unittest tools.eos2000d.test_rom_manifest
+
       - name: Validate 2000D Phase 1 skeleton
         run: |
           test -f platform/2000D.130/Makefile
