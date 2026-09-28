@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "release_status": "NOT_RELEASE_READY",
+  "target": {
+    "camera_family": "Canon EOS 1500D / 2000D / Rebel T7",
+    "firmware": "1.3.0"
+  },
+  "build": {
+    "git_commit": "TBD",
+    "upstream_commit": "TBD",
+    "toolchain": "TBD",
+    "build_command": "TBD",
+    "autoexec_sha256": "TBD"
+  },
+  "reverse_engineering": {
+    "canonical_rom_sha256": "TBD",
+    "loader_constants_verified": false,
+    "minimum_stubs_verified": false
+  },
+  "validation": {
+    "qemu_minimal_passed": false,
+    "qemu_smoke_passed": false,
+    "hardware_minimal_passed": false,
+    "recovery_validation_passed": false,
+    "restricted_core_passed": false,
+    "feature_matrix_reviewed": false
+  },
+  "distribution": {
+    "identity_guard_verified": false,
+    "recovery_instructions_included": false,
+    "checksums_included": false,
+    "installer_included": false
+  }
+}
