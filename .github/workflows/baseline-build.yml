@@ -73,6 +73,13 @@ jobs:
             exit 1
           fi
 
+      - name: Build minimal hello-world on supported reference camera
+        run: |
+          make -C minimal/hello-world clean MODEL=1100D
+          make -C minimal/hello-world MODEL=1100D FATAL_WARNINGS=y -j2
+          test -s minimal/hello-world/autoexec.bin
+          test -s minimal/hello-world/magiclantern.bin
+
       - name: Clean reference-camera build
         run: make -C platform/1100D.105 clean
 
