@@ -584,8 +584,7 @@ static int dynamic_ranges[] = {1196, 1170, 1139, 1087, 1019, 938, 848, 756, 664}
 #endif
 
 #if defined(CONFIG_80D)
-//same sensor
-static int dynamic_ranges[] = {1317, 1264, 1176, 1092, 1005, 921, 840, 731, 644};
+static int dynamic_ranges[] = {1233, 1180, 1093, 1008, 921, 837, 756, 648, 560};
 #endif
 
 #ifdef CONFIG_850D
@@ -610,9 +609,8 @@ static int dynamic_ranges[] = {1255, 1237, 1188, 1120, 1045, 964, 883, 785, 685,
 static int dynamic_ranges[] = {1105, 1086, 1065, 1038, 1000, 936, 846, 773, 676, 585, 499};
 #endif
 
-// TODO: DxO graph is corrupted, so leaving R values for now
 #ifdef CONFIG_R5
-static int dynamic_ranges[] = {1255, 1237, 1188, 1120, 1045, 964, 883, 785, 685, 599, 507};
+static int dynamic_ranges[] = {1333, 1218, 1255, 1127, 1038, 939, 845, 747, 643, 552, 452};
 #endif
 
 /** M50 data missing from DxO.

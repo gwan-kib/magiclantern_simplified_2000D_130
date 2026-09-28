@@ -1,0 +1,59 @@
+name: Baseline build
+
+on:
+  pull_request:
+    branches:
+      - dev
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baseline-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference-camera:
+    name: Build supported reference camera (1100D.105)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install ARM build toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            gcc-arm-none-eabi \
+            binutils-arm-none-eabi \
+            make \
+            python3 \
+            zip
+
+      - name: Show tool versions
+        run: |
+          arm-none-eabi-gcc --version
+          python3 --version
+          make --version
+
+      - name: Clean reference-camera build
+        run: make -C platform/1100D.105 clean
+
+      - name: Build reference camera with fatal warnings
+        run: make -C platform/1100D.105 FATAL_WARNINGS=y -j2
+
+      - name: Upload reference build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 1100D.105-baseline-build
+          path: |
+            platform/1100D.105/build/
+          if-no-files-found: warn
+          retention-days: 7
