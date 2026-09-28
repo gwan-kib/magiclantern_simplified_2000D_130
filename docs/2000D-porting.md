@@ -41,6 +41,13 @@ Still unresolved:
 - a real QEMU boot of Canon firmware 1.3.0 (the model/workdir/smoke-test scaffolding is already prepared);
 - physical-camera execution.
 
+Prepared in advance, but not yet executable:
+
+- Phase 4 hardware-test/recovery protocol;
+- Phase 5 core, memory, GUI and display validation plans;
+- Phase 6 feature matrix with CI evidence enforcement;
+- release-hardening and reproducible-artifact gates.
+
 Phase 1 issues #5–#7 remain open because their evidence must come from Phase 2. This is an intentional dependency, not a reason to pause Phase 2.
 
 See [2000D-issue-backlog.md](2000D-issue-backlog.md) and the GitHub issue tracker for the staged implementation plan.
@@ -233,9 +240,27 @@ Exit only when:
 
 ### Phase 4 — Controlled hardware execution
 
+The test/recovery procedure is prepared, but execution remains blocked by Phase 2/3 evidence.
+
 Exit only after repeated minimal physical-camera boots and documented recovery behavior.
 
-Later phases then bring up core ML services, the restricted menu, and individual features one subsystem at a time.
+### Phase 5 — Core integration
+
+Preparation is complete for staged stub evidence, memory analysis, GUI event mapping, display bring-up, and a restricted core policy.
+
+Exit only after the restricted menu works with hardware-tested core dependencies and normal Canon behavior remains intact.
+
+### Phase 6 — Feature enablement
+
+A machine-readable feature matrix and CI validator are already in place.
+
+Exit only after a useful low-risk feature subset is hardware-tested and every enabled feature/module has supporting evidence.
+
+### Phase 7 — Release hardening
+
+Release gates, artifact metadata, identity-guard requirements, beta-test rules, and installer restrictions are documented in advance.
+
+Do not distribute a public test build until all earlier evidence gates are satisfied.
 
 ## Phase 2 analysis documents
 
@@ -244,6 +269,14 @@ Later phases then bring up core ML services, the restricted menu, and individual
 - [Early diagnostic strategy](2000D-130/early-diagnostics.md)
 - [Minimum stub checklist](2000D-130/minimal-stubs.md)
 - [Phase 3 QEMU bring-up guide](2000D-130/qemu.md)
+- [Phase 4 hardware-test protocol](2000D-130/hardware-test-protocol.md)
+- [Phase 5 core bring-up](2000D-130/core-bringup.md)
+- [Memory validation](2000D-130/memory-validation.md)
+- [GUI bring-up](2000D-130/gui-bringup.md)
+- [Display bring-up](2000D-130/display-bringup.md)
+- [Restricted core policy](2000D-130/restricted-core.md)
+- [Phase 6 feature matrix](2000D-130/feature-matrix.md)
+- [Release hardening](2000D-130/release-hardening.md)
 
 ## Project tracking
 
