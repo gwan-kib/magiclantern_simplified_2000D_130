@@ -328,6 +328,7 @@ ML_SRC_OBJS = \
     $(BUILD_DIR)/$(ML_BOOT_OBJ) \
     $(BUILD_DIR)/minimal.o \
     $(BUILD_DIR)/cache.o \
+    $(BUILD_DIR)/reloc.o \
     $(BUILD_DIR)/font_direct.o \
     $(addprefix $(BUILD_DIR)/,$(ML_MINIMAL_EXTRA_OBJS))
 
@@ -582,6 +583,12 @@ LFLAGS += -u __aeabi_f2ulz -u __aeabi_f2lz
 # built for lowest-common-denominator ARMv5.  -R magiclantern still
 # uses efficient hw division, it just includes the code for sw div.
 LFLAGS += -u __aeabi_idiv -u __aeabi_idivmod
+
+# Full builds force extra libc/math/module ABI symbols into the image.
+# A minimal payload should only link what it actually references.
+ifeq ($(ML_SRC_PROFILE),minimal)
+LFLAGS =
+endif
 
 ML_LIBC = $(BUILD_DIR)/dietlibc.a \
           $(BUILD_DIR)/newlib-libc.a \
