@@ -68,6 +68,7 @@ Typical Linux/WSL dependencies:
 - Python 3
 - `arm-none-eabi-gcc` and related binutils
 - Newlib headers for the ARM bare-metal toolchain (for Debian/Ubuntu: `libnewlib-arm-none-eabi`)
+- Docutils / `rst2html` for module documentation generation (for Debian/Ubuntu: `python3-docutils`)
 - `git`
 - `zip`
 
