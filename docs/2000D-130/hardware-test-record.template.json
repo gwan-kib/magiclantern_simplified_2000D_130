@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "status": "NOT_EXECUTABLE_UNTIL_ALL_TBD_FIELDS_ARE_FILLED",
+  "camera": {
+    "marketed_model": "TBD",
+    "firmware_displayed": "TBD"
+  },
+  "build": {
+    "git_commit": "TBD",
+    "build_command": "TBD",
+    "compiler_version": "TBD",
+    "config_qemu": "MUST_BE_FALSE",
+    "autoexec_filename": "autoexec.bin",
+    "autoexec_size": null,
+    "autoexec_sha256": "TBD",
+    "canonical_rom_sha256": "TBD"
+  },
+  "prerequisites": {
+    "qemu_minimal_execution_issue_13_passed": false,
+    "qemu_smoke_test_issue_14_passed": false,
+    "diagnostic_issue_10_verified": false,
+    "minimum_stubs_issue_11_verified": false,
+    "rescue_card_stock_boot_verified": false,
+    "fully_charged_battery": false
+  },
+  "expected_diagnostic": {
+    "description": "TBD",
+    "abort_after_seconds": null
+  },
+  "results": {
+    "cold_boots_required": 10,
+    "cold_boots_passed": 0,
+    "warm_boots_required": 10,
+    "warm_boots_passed": 0,
+    "stock_boot_after_ml_card_removal": null,
+    "shutdown_normal": null,
+    "notes": []
+  }
+}

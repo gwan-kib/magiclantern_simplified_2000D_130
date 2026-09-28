@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "target": "Canon EOS 2000D firmware 1.3.0",
+  "policy": "features.h is an explicit allowlist; all_features.h is forbidden during bring-up",
+  "features": [
+    {
+      "name": "FEATURE_HISTOGRAM",
+      "status": "Disabled",
+      "risk_tier": "low-to-medium",
+      "dependencies": ["bitmap display", "live view"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_SCREENSHOT",
+      "status": "Disabled",
+      "risk_tier": "low-to-medium",
+      "dependencies": ["bitmap display", "file I/O"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_SHOW_FREE_MEMORY",
+      "status": "Disabled",
+      "risk_tier": "low",
+      "dependencies": ["memory accounting", "menu"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_INTERVALOMETER",
+      "status": "Disabled",
+      "risk_tier": "medium",
+      "dependencies": ["tasking", "timers", "shooting control"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_CROPMARKS",
+      "status": "Disabled",
+      "risk_tier": "low-to-medium",
+      "dependencies": ["bitmap display", "file I/O"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_ZEBRA",
+      "status": "Disabled",
+      "risk_tier": "medium",
+      "dependencies": ["live view", "bitmap display"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_FOCUS_PEAK",
+      "status": "Disabled",
+      "risk_tier": "medium",
+      "dependencies": ["live view", "bitmap display"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_MAGIC_ZOOM",
+      "status": "Disabled",
+      "risk_tier": "medium",
+      "dependencies": ["live view", "bitmap display", "GUI events"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_FPS_OVERRIDE",
+      "status": "Disabled",
+      "risk_tier": "high",
+      "dependencies": ["verified timing registers", "runtime validation"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_EXPO_OVERRIDE",
+      "status": "Disabled",
+      "risk_tier": "high",
+      "dependencies": ["verified exposure internals", "property/timing safety"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_WHITE_BALANCE",
+      "status": "Disabled",
+      "risk_tier": "high",
+      "dependencies": ["CONFIG_PROP_REQUEST_CHANGE", "persistent property safety"],
+      "evidence": []
+    },
+    {
+      "name": "FEATURE_HDR_BRACKETING",
+      "status": "Disabled",
+      "risk_tier": "high",
+      "dependencies": ["CONFIG_PROP_REQUEST_CHANGE", "shooting control"],
+      "evidence": []
+    }
+  ],
+  "modules": []
+}
