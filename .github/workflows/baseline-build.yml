@@ -50,6 +50,20 @@ jobs:
       - name: Test EOS 2000D QEMU scaffolding
         run: python3 -m unittest tools.eos2000d.test_qemu_phase3
 
+      - name: Test EOS 2000D later-phase preparation tooling
+        run: python3 -m unittest tools.eos2000d.test_phase4_7_prep
+
+      - name: Enforce EOS 2000D evidence and safety gates
+        run: |
+          python3 tools/eos2000d/stub_evidence.py \
+            --stubs platform/2000D.130/stubs.S \
+            --evidence docs/2000D-130/stub-evidence.json
+          python3 tools/eos2000d/feature_matrix.py \
+            --features platform/2000D.130/features.h \
+            --modules platform/2000D.130/modules.included \
+            --matrix docs/2000D-130/feature-matrix.json
+          python3 tools/eos2000d/port_policy.py --root . --mode pre-rom
+
       - name: Validate QEMU patcher against supported qemu-eos source
         run: |
           mkdir -p /tmp/qemu-eos/hw/eos
