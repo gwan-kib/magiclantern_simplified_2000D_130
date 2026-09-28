@@ -44,6 +44,35 @@ jobs:
           python3 --version
           make --version
 
+      - name: Validate 2000D Phase 1 skeleton
+        run: |
+          test -f platform/2000D.130/Makefile
+          test -f platform/2000D.130/internals.h
+          test -f platform/2000D.130/consts.h
+          test -f platform/2000D.130/stubs.S
+          test -f platform/2000D.130/features.h
+          test -f platform/2000D.130/gui.h
+          make -C platform/2000D.130 preflight
+
+      - name: Verify unvalidated 2000D builds fail safely
+        run: |
+          set +e
+          output="$(make -C platform/2000D.130 2>&1)"
+          status=$?
+          set -e
+
+          printf '%s\n' "$output"
+
+          if [ "$status" -eq 0 ]; then
+            echo "::error::2000D.130 unexpectedly produced a normal build path before firmware constants were verified."
+            exit 1
+          fi
+
+          if ! grep -q "MAIN_FIRMWARE_ADDR is intentionally unset" <<< "$output"; then
+            echo "::error::2000D.130 failed for an unexpected platform-plumbing reason."
+            exit 1
+          fi
+
       - name: Clean reference-camera build
         run: make -C platform/1100D.105 clean
 
