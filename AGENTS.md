@@ -1,0 +1,461 @@
+# AGENTS.md
+
+## Purpose
+
+This repository is an **experimental Magic Lantern port for the Canon EOS 1500D / 2000D / Rebel T7 on firmware 1.3.0**.
+
+This file is the operating guide for coding/research agents working in this repository. Read it before making changes.
+
+The highest-priority rule is:
+
+> **Never invent, guess, or blindly copy firmware-specific addresses, structure layouts, patch points, GUI codes, buffer addresses, or hardware register assumptions into active 2000D.130 code.**
+
+A build that compiles is not evidence that it is safe.
+
+---
+
+## Current project state
+
+The project has completed most useful scaffolding that does not require the canonical Canon firmware 1.3.0 ROM.
+
+### Completed
+
+- Phase 0 repository baseline / upstream synchronization.
+- CI for a known-good reference target (`1100D.105`).
+- Safe `platform/2000D.130/` skeleton.
+- Current-generation minimal-build path repaired and validated on `1100D.105`.
+- ROM manifest / local ROM probe tooling.
+- Cache-hack reverse-engineering map.
+- Early diagnostic / LED plan.
+- Minimum-stub evidence plan.
+- Provisional qemu-eos 2000D model patcher.
+- QEMU workdir and smoke-test tooling.
+- Physical-camera test/recovery protocol.
+- Core/stub/memory/GUI/display bring-up plans.
+- Restricted-core policy.
+- Feature-validation matrix and CI enforcement.
+- Release-hardening / release-manifest preparation.
+
+### Current hard blocker
+
+The project still needs **one canonical EOS 2000D firmware 1.3.0 raw firmware/ROM image** identified by SHA-256 and tied to a reproducible acquisition/extraction path.
+
+Until that exists, do not claim that firmware-specific 1.3.0 addresses are verified.
+
+### Important open dependency chain
+
+```text
+canonical 1.3.0 ROM
+        ↓
+verify boot/memory/task/stub data
+        ↓
+real 2000D.130 minimal build
+        ↓
+QEMU Canon boot + ML minimal payload
+        ↓
+controlled hardware minimal boot
+        ↓
+core APIs / memory / GUI / display
+        ↓
+restricted ML menu
+        ↓
+feature-by-feature enablement
+        ↓
+release hardening / external testing
+```
+
+---
+
+## Source-of-truth documents
+
+Before changing a subsystem, read the relevant document.
+
+### Project status / safety
+
+- `README.md`
+- `docs/2000D-porting.md`
+- `docs/2000D-issue-backlog.md`
+
+### Phase 2 — firmware analysis
+
+- `docs/2000D-130/rom-analysis.md`
+- `docs/2000D-130/rom-manifest.json`
+- `docs/2000D-130/cache-hack-map.md`
+- `docs/2000D-130/early-diagnostics.md`
+- `docs/2000D-130/minimal-stubs.md`
+- `docs/2000D-130/stub-evidence.json`
+
+### Phase 3 — QEMU
+
+- `docs/2000D-130/qemu.md`
+
+### Phase 4 — hardware
+
+- `docs/2000D-130/hardware-test-protocol.md`
+- `docs/2000D-130/hardware-test-record.template.json`
+
+### Phase 5 — core
+
+- `docs/2000D-130/core-bringup.md`
+- `docs/2000D-130/memory-validation.md`
+- `docs/2000D-130/gui-bringup.md`
+- `docs/2000D-130/display-bringup.md`
+- `docs/2000D-130/restricted-core.md`
+
+### Phase 6 — features
+
+- `docs/2000D-130/feature-matrix.md`
+- `docs/2000D-130/feature-matrix.json`
+
+### Phase 7 — release
+
+- `docs/2000D-130/release-hardening.md`
+- `docs/2000D-130/release-manifest.template.json`
+
+---
+
+## Reference-camera policy
+
+### Preferred references
+
+1. **Historical EOS 2000D firmware 1.1.0 port**
+   - best same-body structural reference;
+   - useful for symbol matching, GUI candidates, display candidates and startup structure;
+   - **not an address source for 1.3.0**.
+
+2. **EOS 1300D / Rebel T6**
+   - useful late DIGIC IV+ architectural cross-check;
+   - useful for qemu-eos model structure;
+   - **not an address source for 2000D.130**.
+
+3. **EOS 1100D.105**
+   - supported build regression target;
+   - useful for build-system sanity;
+   - not a firmware-address reference for the T7.
+
+### Do not confuse
+
+**EOS 200D / Rebel SL2 is not EOS 2000D / Rebel T7.**
+
+The 200D is a different DIGIC-generation camera.
+
+---
+
+## Firmware evidence standard
+
+Every firmware-specific value promoted into executable 2000D.130 code must be backed by evidence from the exact firmware 1.3.0 image.
+
+For an address or structure decision, record at least:
+
+- canonical 1.3.0 ROM SHA-256;
+- address / offset;
+- ROM vs RAM callable address when applicable;
+- how it was identified;
+- nearby strings / xrefs / call graph / instruction signature;
+- historical 2000D.110 equivalent if useful;
+- confidence / review notes;
+- QEMU or hardware evidence when applicable.
+
+Do not use comments such as "same as 1300D" or "probably unchanged" as proof.
+
+---
+
+## Canon firmware files
+
+Do **not** commit Canon firmware/ROM/update binaries to this public repository.
+
+Examples that must stay out of Git:
+
+- raw ROM dumps;
+- Canon firmware ZIPs;
+- FIR/update binaries;
+- extracted copyrighted firmware sections.
+
+What may be committed:
+
+- SHA-256 hashes;
+- byte sizes;
+- filenames;
+- extraction scripts that contain no Canon firmware bytes;
+- analysis notes;
+- addresses/disassembly summaries;
+- reproducible metadata.
+
+---
+
+## Platform rules
+
+Target directory:
+
+`platform/2000D.130/`
+
+### Keep active values conservative
+
+The current platform intentionally blocks a normal build while critical firmware values are unverified.
+
+Do not bypass those guards merely to make the build succeed.
+
+### Stubs
+
+Any active `NSTUB(...)` or `THUMB_FN(...)` must have a matching entry in:
+
+`docs/2000D-130/stub-evidence.json`
+
+CI validates this with:
+
+`tools/eos2000d/stub_evidence.py`
+
+### Features
+
+`platform/2000D.130/features.h` is an **explicit allowlist**.
+
+Do not include:
+
+`all_features.h`
+
+during bring-up.
+
+Any enabled `FEATURE_*` must have an evidence-backed entry in:
+
+`docs/2000D-130/feature-matrix.json`
+
+CI validates this with:
+
+`tools/eos2000d/feature_matrix.py`
+
+### Modules
+
+`platform/2000D.130/modules.included` should remain empty until a module has an evidence-backed feature-matrix entry.
+
+---
+
+## Pre-ROM forbidden changes
+
+Until the canonical ROM is verified and the relevant milestone explicitly changes this policy, do not enable:
+
+- `CONFIG_PROP_REQUEST_CHANGE`
+- `CONFIG_DUMPER_BOOTFLAG`
+- `CONFIG_RAW_LIVEVIEW`
+- `CONFIG_RAW_PHOTO`
+- `CONFIG_EDMAC_MEMCPY`
+- `CONFIG_FRAME_ISO_OVERRIDE`
+- `CONFIG_FRAME_SHUTTER_OVERRIDE`
+- `CONFIG_DIGIC_POKE`
+
+Also do not:
+
+- add installer FIR files;
+- enable modules;
+- add persistent property writes;
+- add arbitrary hardware pokes;
+- remove the intentional 2000D build guards.
+
+CI enforces the current policy through:
+
+`tools/eos2000d/port_policy.py`
+
+---
+
+## QEMU rules
+
+Supported emulator baseline:
+
+`reticulatedpines/qemu-eos` branch `qemu-eos-v4.2.1`
+
+Use:
+
+`tools/eos2000d/qemu_eos_patch.py`
+
+for the provisional 2000D model.
+
+The QEMU model contains provisional values derived from the 1300D model and historical 2000D.110 evidence. Those values are **emulator bring-up assumptions only**.
+
+Do not copy QEMU-only assumptions into physical-camera platform files without independent firmware evidence.
+
+QEMU builds using `CONFIG_QEMU=y` must never be tested on the physical camera.
+
+---
+
+## Physical-camera rules
+
+Do not test a build on hardware until the gates in:
+
+`docs/2000D-130/hardware-test-protocol.md`
+
+are satisfied.
+
+At minimum, first hardware execution requires:
+
+- exact camera model confirmed;
+- camera firmware exactly 1.3.0;
+- canonical ROM hash known;
+- verified loader / minimal stubs;
+- passing QEMU execution;
+- passing QEMU smoke test;
+- verified early diagnostic;
+- exact non-QEMU `autoexec.bin` SHA-256;
+- rescue card prepared;
+- fully charged battery;
+- explicit abort threshold.
+
+Never treat "it boots on a related camera" as sufficient evidence.
+
+---
+
+## Development workflow
+
+Use normal GitHub review flow.
+
+1. Start from current `dev`.
+2. Create a focused branch.
+3. Make the smallest logically complete change.
+4. Update code **and** the documentation/evidence that justifies it in the same PR.
+5. Run/inspect CI.
+6. Merge only after relevant checks are green.
+7. Close a GitHub issue only when its actual acceptance criteria are met.
+
+Do not close an issue simply because scaffolding exists.
+
+When work is blocked, leave the issue open and document:
+
+- exact blocker;
+- evidence missing;
+- possible next steps;
+- exit criterion.
+
+---
+
+## Core commands
+
+### Safe 2000D structural check
+
+```bash
+make -C platform/2000D.130 preflight
+```
+
+A normal 2000D build is currently expected to fail on intentionally unset verified firmware values.
+
+### Reference full build
+
+```bash
+make -C platform/1100D.105 clean
+make -C platform/1100D.105 FATAL_WARNINGS=y -j2
+```
+
+### Reference minimal build
+
+```bash
+make -C minimal/hello-world clean MODEL=1100D
+make -C minimal/hello-world MODEL=1100D FATAL_WARNINGS=y -j2
+```
+
+### ROM tooling tests
+
+```bash
+python3 -m unittest tools.eos2000d.test_rom_manifest
+```
+
+### QEMU scaffolding tests
+
+```bash
+python3 -m unittest tools.eos2000d.test_qemu_phase3
+```
+
+### Later-phase preparation tests
+
+```bash
+python3 -m unittest tools.eos2000d.test_phase4_7_prep
+```
+
+### Stub evidence guard
+
+```bash
+python3 tools/eos2000d/stub_evidence.py \
+  --stubs platform/2000D.130/stubs.S \
+  --evidence docs/2000D-130/stub-evidence.json
+```
+
+### Feature evidence guard
+
+```bash
+python3 tools/eos2000d/feature_matrix.py \
+  --features platform/2000D.130/features.h \
+  --modules platform/2000D.130/modules.included \
+  --matrix docs/2000D-130/feature-matrix.json
+```
+
+### Current pre-ROM safety policy
+
+```bash
+python3 tools/eos2000d/port_policy.py --root . --mode pre-rom
+```
+
+---
+
+## When the 1.3.0 ROM becomes available
+
+Do not immediately start adding addresses.
+
+Use this order:
+
+1. Hash the source artifact and raw analysis image.
+2. Update `docs/2000D-130/rom-manifest.json`.
+3. Verify model/version evidence.
+4. Confirm ROM bank/base/alias mapping.
+5. Verify startup entry and cache-hack path.
+6. Verify RAM/BSS/allocator boundaries.
+7. Determine task/task_attr layouts.
+8. Identify only the minimum stubs required for the first payload.
+9. Update evidence records.
+10. Build for QEMU first.
+11. Obtain a repeatable Canon → ML → Canon trace.
+12. Freeze smoke markers.
+13. Only then prepare the exact hardware binary/test record.
+
+---
+
+## Definition of a useful first executable milestone
+
+The first success is **not** "Magic Lantern menu appears."
+
+The preferred milestone is:
+
+```text
+Canon firmware starts
+→ ML loader/cache patch executes
+→ minimal diagnostic payload executes
+→ Canon init task continues
+→ Canon firmware remains operational
+```
+
+Prove this in QEMU before physical hardware.
+
+---
+
+## Known Issues document
+
+A separate Google Doc tracks detailed blockers and possible solutions.
+
+Repository agents should also keep GitHub issue comments current so important engineering state is not available only in an external document.
+
+If a new blocker is discovered:
+
+1. document it in the relevant repository Markdown file;
+2. add a concise update to the affected GitHub issue;
+3. add it to the external Known Issues tab when the working environment has access to that document.
+
+---
+
+## Final agent checklist
+
+Before handing off work, confirm:
+
+- no guessed firmware address was activated;
+- no Canon firmware bytes were committed;
+- no physical-camera test was implied without the required gates;
+- docs/evidence changed alongside code when needed;
+- feature/module/stub guards still pass;
+- reference build still passes;
+- issue status matches reality;
+- new blockers are documented;
+- README / porting docs reflect any major phase-state change.
