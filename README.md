@@ -28,6 +28,7 @@ Current active work: **Phase 2 reverse engineering + Phase 3 QEMU preparation**
 
 Start here:
 
+- [Agent/contributor operating guide](AGENTS.md)
 - [2000D porting and safety guide](docs/2000D-porting.md)
 - [Staged issue backlog](docs/2000D-issue-backlog.md)
 - [Phase 2 ROM analysis workflow](docs/2000D-130/rom-analysis.md)
