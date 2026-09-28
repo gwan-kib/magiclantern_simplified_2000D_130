@@ -2,9 +2,20 @@
 #define _cameraspecific_features_h_
 
 /*
- * No Magic Lantern user features are enabled during the platform-skeleton
- * stage. Feature bring-up is intentionally deferred until core platform
- * APIs are verified and tracked in the feature matrix (ML2000D-023).
+ * EOS 2000D / Rebel T7 feature policy
+ *
+ * During bring-up this file is an explicit allowlist. Do NOT include
+ * all_features.h.
+ *
+ * Before enabling any FEATURE_* macro:
+ *   1. add/update docs/2000D-130/feature-matrix.json;
+ *   2. attach supporting evidence;
+ *   3. make sure the feature's dependencies have reached the required
+ *      QEMU/hardware validation stage.
+ *
+ * CI enforces these rules with tools/eos2000d/feature_matrix.py.
+ *
+ * No Magic Lantern user features are enabled yet.
  */
 
 #endif
