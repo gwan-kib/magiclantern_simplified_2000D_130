@@ -39,6 +39,15 @@ CONFIG_QEMU     = n
 # SJE: this is abandoned as far as I can tell, but we need the option, to disable it.
 CONFIG_PIC      = n
 
+# Minimal builds deliberately disable optional/full-ML subsystems before
+# Makefile.globals turns CONFIG values into objects/flags.
+ifeq ($(ML_SRC_PROFILE),minimal)
+CONFIG_CONSOLE = n
+CONFIG_TCC = n
+CONFIG_MODULES = n
+CONFIG_LVAPP_HACK_RELOC = n
+endif
+
 include $(TOP_DIR)/Makefile.globals
 include $(DEPS)
 
@@ -306,6 +315,24 @@ else
     ML_OBJS += $(ML_ENTRY_OBJ)
 endif
 
+ifeq ($(ML_SRC_PROFILE),minimal)
+
+ifndef ML_MINIMAL_SOURCE
+$(error ML_MINIMAL_SOURCE must point to the minimal test source when ML_SRC_PROFILE=minimal)
+endif
+
+# Keep this list intentionally close to the historical minimal profile.
+# Camera-specific ML_SRC_EXTRA_OBJS are still appended below, because some
+# newer camera loaders require their normal function_overrides object.
+ML_SRC_OBJS = \
+    $(BUILD_DIR)/$(ML_BOOT_OBJ) \
+    $(BUILD_DIR)/minimal.o \
+    $(BUILD_DIR)/cache.o \
+    $(BUILD_DIR)/font_direct.o \
+    $(addprefix $(BUILD_DIR)/,$(ML_MINIMAL_EXTRA_OBJS))
+
+else
+
 ML_SRC_OBJS_00 = \
     task_utils.o \
     backtrace.o \
@@ -448,6 +475,8 @@ else
     ML_SRC_OBJS += $(BUILD_DIR)/vectorscope.o
 endif
 
+endif
+
 ML_OBJS += $(ML_SRC_OBJS)
 ML_OBJS += $(ML_SRC_EXTRA_OBJS)
 
@@ -567,6 +596,11 @@ INCLUDE_ARGS = -I. -Iinclude -Ibuild -I$(SRC_DIR)
 # content if a rebuild wasn't required?
 #$(BUILD_DIR)/magiclantern-$(VERSION).zip: $(BUILD_DIR)/magiclantern.zip
 #	$(CP) $< $@
+
+ifeq ($(ML_SRC_PROFILE),minimal)
+$(BUILD_DIR)/minimal.o: $(ML_MINIMAL_SOURCE) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(CDEPS_FLAGS) -c -o $@ $< $(INCLUDE_ARGS) $(LFLAGS)
+endif
 
 # if there is a .c file in the cam dir with the same name
 # as in src/, this rule being first means we'll use the
