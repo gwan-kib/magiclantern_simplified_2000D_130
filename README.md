@@ -21,6 +21,10 @@ Current active work: **Phase 2 reverse engineering + Phase 3 QEMU preparation**
 - qemu-eos 2000D model/workdir/smoke-test scaffolding: **implemented**
 - Real QEMU execution of firmware 1.3.0: **blocked on verified ROM + Phase 2 constants**
 - Physical-camera execution: **not approved yet**
+- Phase 4 hardware-test/recovery protocol: **prepared; execution blocked on QEMU/ROM evidence**
+- Phase 5 core/stub/memory/GUI/display bring-up plans: **prepared**
+- Phase 6 feature matrix + CI evidence enforcement: **prepared**
+- Phase 7 release-hardening gates: **prepared; release remains blocked**
 
 Start here:
 
@@ -31,6 +35,10 @@ Start here:
 - [Early diagnostic plan](docs/2000D-130/early-diagnostics.md)
 - [Minimum stub checklist](docs/2000D-130/minimal-stubs.md)
 - [Phase 3 QEMU bring-up guide](docs/2000D-130/qemu.md)
+- [Phase 4 hardware-test protocol](docs/2000D-130/hardware-test-protocol.md)
+- [Phase 5 restricted core plan](docs/2000D-130/core-bringup.md)
+- [Phase 6 feature matrix](docs/2000D-130/feature-matrix.md)
+- [Release hardening plan](docs/2000D-130/release-hardening.md)
 - [GitHub issues](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues)
 
 Do not copy firmware addresses from other cameras. The EOS 1300D can be useful as a late DIGIC 4+ structural reference, but all 2000D constants must be derived from and verified against the 2000D firmware 1.3.0 ROM.
