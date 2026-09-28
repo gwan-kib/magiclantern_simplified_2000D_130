@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "status": "canonical-image-not-yet-available",
+  "target": {
+    "camera": "Canon EOS 1500D / 2000D / Rebel T7",
+    "firmware": "1.3.0"
+  },
+  "canonical_image": null,
+  "reported_leads": {
+    "source": "BigZeeX/magiclantern_simplified_2000D_130 README",
+    "assumed_base": "0xFE0C0000",
+    "reported_first_word": "0xEA000001",
+    "rom_dump_reported_successful": true
+  },
+  "note": "Do not populate canonical_image until a real 1.3.0 image has been hashed and independently verified."
+}
