@@ -20,7 +20,7 @@ The older experimental fork contained notes claiming a successful ROM dump, a fi
 
 ## Current status
 
-Current active milestone: **Phase 2 — Reverse engineering / minimum firmware interface**
+Current active work: **Phase 2 reverse engineering + Phase 3 QEMU preparation**
 
 The repository is not yet a functioning 2000D port, but the project has moved beyond the repository-baseline stage.
 
@@ -38,7 +38,7 @@ Still unresolved:
 - the exact DryOS task/task-attribute layouts;
 - the minimum verified 1.3.0 stubs;
 - the first real 2000D.130 minimal payload;
-- QEMU execution;
+- a real QEMU boot of Canon firmware 1.3.0 (the model/workdir/smoke-test scaffolding is already prepared);
 - physical-camera execution.
 
 Phase 1 issues #5–#7 remain open because their evidence must come from Phase 2. This is an intentional dependency, not a reason to pause Phase 2.
@@ -243,6 +243,7 @@ Later phases then bring up core ML services, the restricted menu, and individual
 - [Cache-hack candidate map](2000D-130/cache-hack-map.md)
 - [Early diagnostic strategy](2000D-130/early-diagnostics.md)
 - [Minimum stub checklist](2000D-130/minimal-stubs.md)
+- [Phase 3 QEMU bring-up guide](2000D-130/qemu.md)
 
 ## Project tracking
 
