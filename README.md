@@ -8,12 +8,16 @@ The public fork this work started from contained early ROM/cache-hack notes, but
 
 ## Port status
 
-Current milestone: **Phase 0 — Repository baseline**
+Current active milestone: **Phase 2 — Reverse engineering / minimum firmware interface**
 
 - Upstream source baseline: `reticulatedpines/magiclantern_simplified:dev`
 - Target firmware: **1.3.0**
-- `platform/2000D.130/`: **not implemented yet**
-- Minimal build: **not demonstrated yet**
+- Phase 0 repository baseline: **complete**
+- `platform/2000D.130/` safe skeleton: **implemented**
+- Current-generation minimal build infrastructure: **working and CI-tested on 1100D.105**
+- Canonical 2000D firmware 1.3.0 ROM/hash: **not yet verified**
+- 2000D.130 boot/memory/task addresses: **not yet verified**
+- 2000D.130 minimal payload: **blocked on Phase 2 ROM/stub work**
 - QEMU execution: **not demonstrated yet**
 - Physical-camera execution: **not approved yet**
 
@@ -21,6 +25,10 @@ Start here:
 
 - [2000D porting and safety guide](docs/2000D-porting.md)
 - [Staged issue backlog](docs/2000D-issue-backlog.md)
+- [Phase 2 ROM analysis workflow](docs/2000D-130/rom-analysis.md)
+- [Phase 2 cache-hack map](docs/2000D-130/cache-hack-map.md)
+- [Early diagnostic plan](docs/2000D-130/early-diagnostics.md)
+- [Minimum stub checklist](docs/2000D-130/minimal-stubs.md)
 - [GitHub issues](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues)
 
 Do not copy firmware addresses from other cameras. The EOS 1300D can be useful as a late DIGIC 4+ structural reference, but all 2000D constants must be derived from and verified against the 2000D firmware 1.3.0 ROM.
