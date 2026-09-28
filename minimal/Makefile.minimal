@@ -1,9 +1,50 @@
+# Current-generation minimal-build bridge.
+#
+# Usage from a minimal target directory:
+#   make MODEL=1100D
+# or for models with multiple supported firmware versions:
+#   make MODEL=5D3 FW_VERSION=123
+#
+# This delegates camera constants to the camera's existing platform Makefile,
+# while asking the current consolidated platform/Makefile for a reduced
+# ML_SRC_PROFILE=minimal object set.
 
-TOP_DIR?=../..
-ML_SETUP_EXTENSION=minimal
-ML_SETUP_DISABLE_USER_CONFIGS = y
-ML_SRC_PROFILE=minimal
+TOP_DIR ?= ../..
 
-include $(TOP_DIR)/platform/Makefile.platform.base
+ifndef MODEL
+$(error MODEL is required, e.g. make MODEL=1100D)
+endif
 
-include $(TOP_DIR)/Makefile.inc
+ifdef FW_VERSION
+MODEL_DIR := $(MODEL).$(FW_VERSION)
+else
+MODEL_MATCHES := $(notdir $(wildcard $(TOP_DIR)/platform/$(MODEL).*))
+ifeq ($(words $(MODEL_MATCHES)),0)
+$(error No platform directory found for MODEL=$(MODEL))
+endif
+ifneq ($(words $(MODEL_MATCHES)),1)
+$(error Multiple firmware targets found for MODEL=$(MODEL): $(MODEL_MATCHES). Pass FW_VERSION explicitly)
+endif
+MODEL_DIR := $(firstword $(MODEL_MATCHES))
+endif
+
+PLATFORM_DIR := $(TOP_DIR)/platform/$(MODEL_DIR)
+MINIMAL_SOURCE := $(abspath minimal.c)
+ML_MINIMAL_EXTRA_OBJS ?= $(ML_SRC_EXTRA_OBJS)
+
+.PHONY: all clean
+
+all: autoexec.bin
+
+autoexec.bin:
+	$(MAKE) -C $(PLATFORM_DIR) \
+		ML_SRC_PROFILE=minimal \
+		ML_MINIMAL_SOURCE="$(MINIMAL_SOURCE)" \
+		ML_MINIMAL_EXTRA_OBJS="$(ML_MINIMAL_EXTRA_OBJS)" \
+		build/autoexec.bin
+	cp $(PLATFORM_DIR)/build/autoexec.bin $@
+	cp $(PLATFORM_DIR)/build/magiclantern.bin magiclantern.bin
+
+clean:
+	$(MAKE) -C $(PLATFORM_DIR) clean
+	rm -f autoexec.bin magiclantern.bin
