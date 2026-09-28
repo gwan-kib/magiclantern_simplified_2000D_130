@@ -67,6 +67,7 @@ Typical Linux/WSL dependencies:
 - GNU Make
 - Python 3
 - `arm-none-eabi-gcc` and related binutils
+- Newlib headers for the ARM bare-metal toolchain (for Debian/Ubuntu: `libnewlib-arm-none-eabi`)
 - `git`
 - `zip`
 
