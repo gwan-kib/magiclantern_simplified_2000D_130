@@ -13,8 +13,22 @@ python3 tools/eos2000d/rom_manifest.py /path/to/ROM.BIN \
   --output /tmp/manifest.json
 ```
 
-Review the result and copy only appropriate metadata into
-`docs/2000D-130/rom-manifest.json`.
+Review the result and copy only appropriate metadata into the manifest for its
+exact firmware. The 1.1.0 reference image is documented in
+`docs/2000D-110/rom-manifest.json`; the 1.3.0 manifest remains separate.
+
+## Firmware 1.1.0 QEMU preparation
+
+The locally verified 1.1.0 profile uses ROM1 only; the supplied ROM0 fails its
+logged checksum and must not be used. With qemu-eos built and the ROM kept
+outside Git, inspect the available options with:
+
+```bash
+python3 tools/eos2000d/qemu_workdir.py --help
+```
+
+The 1.1.0 QEMU assumptions and direct-main experiment are documented in
+`docs/2000D-110/qemu.md`. No actual emulator run has been recorded yet.
 
 ## Probe candidate addresses locally
 

@@ -17,7 +17,7 @@ class RomManifestTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = Path(tmpdir) / "synthetic-rom.bin"
             path.write_bytes(image)
-            manifest = inspect_image(path)
+            manifest = inspect_image(path, 0xFE0C0000, firmware="1.3.0")
 
         self.assertEqual(manifest["mapping"]["first_word_le"], "0xEA000001")
         self.assertTrue(manifest["mapping"]["expected_first_word_matches"])
@@ -29,6 +29,43 @@ class RomManifestTests(unittest.TestCase):
         self.assertTrue(
             any("1.3.0" in item["text"] for item in manifest["ascii_evidence"])
         )
+
+    def test_bank_base_is_distinct_from_main_entry_and_mirrors(self):
+        image = bytes(0x20) + bytes.fromhex("01 00 00 EA") + bytes(12)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "synthetic-bank.bin"
+            path.write_bytes(image)
+            result = inspect_image(path, 0xF8000000, main_offset=0x20,
+                                   aliases=(0xFA000000, 0xFE000000), firmware="1.1.0")
+        mapping = result["mapping"]
+        self.assertEqual(mapping["first_word_le"], "0x00000000")
+        self.assertEqual(mapping["entry_word_le"], "0xEA000001")
+        self.assertEqual(mapping["main_firmware_address"], "0xF8000020")
+        self.assertEqual(mapping["decoded_entry_branch_target"], "0xF800002C")
+        self.assertEqual(mapping["aliases"][1]["main_firmware_address"], "0xFE000020")
+        self.assertEqual(mapping["aliases"][1]["decoded_entry_branch_target"], "0xFE00002C")
+        self.assertEqual(result["target"]["firmware"], "1.1.0")
+
+    def test_no_mapping_or_firmware_is_invented(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "synthetic.bin"
+            path.write_bytes(bytes.fromhex("01 00 00 EA"))
+            result = inspect_image(path)
+        self.assertIsNone(result["mapping"]["bank_base"])
+        self.assertIsNone(result["mapping"]["main_firmware_address"])
+        self.assertIsNone(result["mapping"]["decoded_entry_branch_target"])
+        self.assertIsNone(result["target"]["firmware"])
+
+    def test_invalid_offsets_and_address_wrap_fail(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "synthetic.bin"
+            path.write_bytes(bytes(16))
+            for options in ({"main_offset": -1}, {"main_offset": 13},
+                            {"aliases": (0xFE000000,)}):
+                with self.assertRaises(ValueError):
+                    inspect_image(path, **options)
+            with self.assertRaises(ValueError):
+                inspect_image(path, 0xFFFFFFF8)
 
 
 if __name__ == "__main__":
