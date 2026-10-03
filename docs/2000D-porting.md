@@ -12,15 +12,15 @@ This port targets the same camera family sold as:
 - Canon EOS 1500D
 - Canon EOS Rebel T7
 
-The intended firmware target is **1.3.0**.
+The initial reverse-engineering baseline is **firmware 1.1.0**, for which a local ROM1 dump is now identified by hash and analyzed. The eventual platform target remains **1.3.0**, which still requires its own canonical ROM and independent validation. Do not promote 1.1.0 values into 1.3.0 code.
 
 The port is based on the current `dev` branch of `reticulatedpines/magiclantern_simplified`. The Phase 0 synchronization branch was based on upstream commit `1a0600a153476a6af740b3036d3aabc2b3318339`.
 
-The older experimental fork contained notes claiming a successful ROM dump, a firmware signature near `0xFE0C0000`, and an intended cache-hack loader. Those observations are treated as **leads, not verified port constants**, until ML2000D-008 and the related reverse-engineering issues document the exact ROM hash and supporting disassembly.
+The local 1.1.0 analysis now confirms the reported entry and several startup call targets against the exact ROM1 hash. Other historical values remain candidates or are rejected; see [2000D-110 ROM analysis](2000D-110/rom-analysis.md). No 1.3.0 port constants are verified by the 1.1.0 image.
 
 ## Current status
 
-Current active work: **Phase 2 reverse engineering + Phase 3 QEMU preparation**
+Current active work: **1.1.0 reference-ROM analysis and QEMU preparation, followed by 1.3.0 forward-port validation**
 
 The repository is not yet a functioning 2000D port, but the project has moved beyond the repository-baseline stage.
 
@@ -33,7 +33,7 @@ Completed groundwork:
 
 Still unresolved:
 
-- the canonical firmware 1.3.0 ROM image and SHA-256;
+- a canonical firmware 1.3.0 ROM image and SHA-256;
 - the exact 1.3.0 memory map and cache-hack patch locations;
 - the exact DryOS task/task-attribute layouts;
 - the minimum verified 1.3.0 stubs;
@@ -110,7 +110,7 @@ Changing build options can leave stale objects. Upstream specifically warns that
 
 Do **not** commit Canon ROM images or firmware-update binaries to this public repository.
 
-For the canonical firmware 1.3.0 ROM, document:
+For each firmware ROM, document:
 
 - SHA-256 hash;
 - exact byte size;
@@ -124,7 +124,7 @@ Suggested evidence format for an address:
 
 ```text
 Symbol / purpose:
-Firmware: 2000D 1.3.0
+Firmware: exact camera firmware version
 ROM SHA-256:
 Address:
 How found:
@@ -137,7 +137,7 @@ An address from another model is never sufficient evidence on its own.
 
 ## Reference cameras
 
-The historical **EOS 2000D firmware 1.1.0** port is the closest same-body reference and should be used as a reverse-engineering index. Its firmware addresses are not valid evidence for 1.3.0 on their own.
+The **EOS 2000D firmware 1.1.0** ROM is the exact same-body reverse-engineering baseline for 1.1.0 work and an index for locating analogous 1.3.0 routines. Its firmware addresses are not valid evidence for 1.3.0 on their own. Its supplied ROM0 dump fails the logged checksum and must not be used as a genuine bank.
 
 The EOS 1300D / Rebel T6 is also a useful **late DIGIC 4+ structural reference** for cross-checking patterns.
 
@@ -163,7 +163,7 @@ is for emulation. Upstream warns that QEMU builds are not for physical cameras a
 
 Planned QEMU progression:
 
-1. boot the Canon 1.3.0 ROM far enough to inspect startup;
+1. boot the verified Canon 1.1.0 ROM1 in an explicitly labeled direct-main experiment, then repeat for 1.3.0 once its ROM is available;
 2. verify the cache-hack patch points;
 3. execute a minimal ML payload;
 4. prove Canon execution continues afterward;
@@ -265,6 +265,10 @@ Do not distribute a public test build until all earlier evidence gates are satis
 ## Phase 2 analysis documents
 
 - [ROM acquisition and manifest workflow](2000D-130/rom-analysis.md)
+- [Verified 1.1.0 ROM analysis and manifest](2000D-110/rom-analysis.md)
+- [1.1.0 startup map](2000D-110/startup-map.md)
+- [1.1.0 task-structure findings](2000D-110/task-structure.md)
+- [1.1.0 QEMU preparation](2000D-110/qemu.md)
 - [Cache-hack candidate map](2000D-130/cache-hack-map.md)
 - [Early diagnostic strategy](2000D-130/early-diagnostics.md)
 - [Minimum stub checklist](2000D-130/minimal-stubs.md)

@@ -3,8 +3,12 @@
 ## Status
 
 Phase 3 preparatory work is implemented, but a real 2000D firmware 1.3.0 boot
-cannot be demonstrated until Phase 2 provides verified firmware images and
-startup constants.
+cannot be demonstrated until its own verified firmware images and startup
+constants are available. Firmware 1.1.0 now has a separate verified-ROM1
+profile and QEMU address-mapping analysis; this is useful for validating the
+emulator path, but does not verify 1.3.0 constants. See
+[the 1.1.0 QEMU notes](../2000D-110/qemu.md) and
+[the 1.1.0 startup map](../2000D-110/startup-map.md).
 
 The supported emulator baseline is:
 
@@ -23,6 +27,8 @@ The repository now provides:
 - a bounded QEMU smoke-test runner;
 - ordered boot-marker validation;
 - unit tests for all of the above.
+- a firmware 1.1.0 workdir profile using only the matching 32 MiB ROM1 image;
+  the supplied ROM0 dump fails its expected MD5 and is rejected.
 
 These tools deliberately do not fabricate Canon ROM files or claim successful
 emulation.
@@ -54,20 +60,22 @@ physical-camera Magic Lantern constants.
 
 ## Important address distinction
 
-There is a known point requiring validation:
+For firmware 1.1.0, the address relation is now resolved for the qemu-eos
+emulator mapping:
 
-- historical Magic Lantern 2000D.110 startup analysis uses addresses in the
-  `0xFE0C....` region;
+- the verified 1.1.0 image's main entry is `0xFE0C0000`, at file offset
+  `0xC0000` in the final 32 MiB ROM1 alias;
 - qemu-eos' existing 1300D model records
   `firmware_start = 0xFF0C0000`.
 
 qemu-eos also contains 1300D-specific code comments referencing execution at
 `0xFE0C038C`.
 
-Therefore `firmware_start` should not be interpreted as identical to
-Magic Lantern's `MAIN_FIRMWARE_ADDR` without understanding qemu-eos' ROM
-mirroring/alias behavior. Phase 2/3 traces must resolve this before using
-QEMU observations as physical-camera address evidence.
+QEMU aliases each 32 MiB ROM1 image from `0xF8000000` through
+`0xFE000000`; offset `0xC0000` therefore appears at `0xF80C0000`,
+`0xFA0C0000`, `0xFC0C0000`, and `0xFE0C0000`. This explains the 1.1.0 entry
+address within QEMU and separates it from the 1300D model's `firmware_start`.
+It does not prove physical chip wiring or establish the 1.3.0 entry address.
 
 ## Patch qemu-eos
 
@@ -135,8 +143,10 @@ python3 tools/eos2000d/qemu_workdir.py ~/qemu-2000d \
   --create --create-disks --command
 ```
 
-The tool intentionally exits with a missing-ROM status until verified
-`ROM0.BIN` and `ROM1.BIN` are supplied.
+For firmware 1.3.0 the tool intentionally exits with a missing-ROM status
+until verified `ROM0.BIN` and `ROM1.BIN` are supplied. Firmware 1.1.0 instead
+requires only the hash-validated `ROM1.BIN`; it refuses a `ROM0.BIN` in that
+work directory so the invalid uniform dump cannot be mistaken for a real ROM.
 
 ### Why there is a dummy CF image
 
@@ -231,8 +241,9 @@ A timeout is acceptable if every expected marker was reached in order because
 the camera firmware/emulator normally continues running. An early crash or a
 missing/out-of-order marker fails the smoke test.
 
-The exact marker list remains provisional until the first real 1.3.0
-execution trace exists.
+The exact marker list remains provisional until a real execution trace exists
+for the selected firmware. The 1.1.0 profile has not yet been run because this
+host has no qemu-eos executable and its WSL distribution is inaccessible.
 
 ## Phase 3 issue status
 

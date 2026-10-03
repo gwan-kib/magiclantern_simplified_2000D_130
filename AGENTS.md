@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is an **experimental Magic Lantern port for the Canon EOS 1500D / 2000D / Rebel T7 on firmware 1.3.0**.
+This repository is an **experimental Magic Lantern port for the Canon EOS 1500D / 2000D / Rebel T7**. Firmware **1.1.0 is now the verified-ROM reverse-engineering baseline**; firmware **1.3.0 remains the eventual platform target and requires its own exact ROM evidence**.
 
 This file is the operating guide for coding/research agents working in this repository. Read it before making changes.
 
@@ -16,7 +16,7 @@ A build that compiles is not evidence that it is safe.
 
 ## Current project state
 
-The project has completed most useful scaffolding that does not require the canonical Canon firmware 1.3.0 ROM.
+The project has completed most useful scaffolding that does not require the canonical Canon firmware 1.3.0 ROM. A user-supplied 1.1.0 ROM1 dump is now locally verified and analyzed; no Canon bytes are stored in this repository.
 
 ### Completed
 
@@ -25,6 +25,8 @@ The project has completed most useful scaffolding that does not require the cano
 - Safe `platform/2000D.130/` skeleton.
 - Current-generation minimal-build path repaired and validated on `1100D.105`.
 - ROM manifest / local ROM probe tooling.
+- Firmware 1.1.0 ROM1 integrity manifest and startup analysis in `docs/2000D-110/`.
+- 1.1.0 QEMU workdir profile requiring ROM1 only; the supplied ROM0 dump fails its logged hash and is not used.
 - Cache-hack reverse-engineering map.
 - Early diagnostic / LED plan.
 - Minimum-stub evidence plan.
@@ -38,14 +40,14 @@ The project has completed most useful scaffolding that does not require the cano
 
 ### Current hard blocker
 
-The project still needs **one canonical EOS 2000D firmware 1.3.0 raw firmware/ROM image** identified by SHA-256 and tied to a reproducible acquisition/extraction path.
+The project still needs **one canonical EOS 2000D firmware 1.3.0 raw firmware/ROM image** identified by SHA-256 and tied to a reproducible acquisition/extraction path. The 1.1.0 image is an independently analyzed same-body baseline, not a substitute for 1.3.0 evidence.
 
 Until that exists, do not claim that firmware-specific 1.3.0 addresses are verified.
 
 ### Important open dependency chain
 
 ```text
-canonical 1.3.0 ROM
+verified 1.1.0 reference ROM + canonical 1.3.0 ROM
         ↓
 verify boot/memory/task/stub data
         ↓
@@ -77,6 +79,13 @@ Before changing a subsystem, read the relevant document.
 - `docs/2000D-issue-backlog.md`
 
 ### Phase 2 — firmware analysis
+
+- `docs/2000D-110/rom-analysis.md`
+- `docs/2000D-110/rom-manifest.json`
+- `docs/2000D-110/startup-map.md`
+- `docs/2000D-110/task-structure.md`
+- `docs/2000D-110/stub-evidence.json`
+- `docs/2000D-110/qemu.md`
 
 - `docs/2000D-130/rom-analysis.md`
 - `docs/2000D-130/rom-manifest.json`
@@ -119,9 +128,10 @@ Before changing a subsystem, read the relevant document.
 ### Preferred references
 
 1. **Historical EOS 2000D firmware 1.1.0 port**
-   - best same-body structural reference;
-   - useful for symbol matching, GUI candidates, display candidates and startup structure;
-   - **not an address source for 1.3.0**.
+   - exact local ROM1 image identified by SHA-256 and analyzed in `docs/2000D-110/`;
+   - verified addresses may be used only for 1.1.0 experiments;
+   - remains a same-body structural reference, **not an address source for 1.3.0**;
+   - ROM0 dump hash mismatch is documented; never use it as a real ROM image.
 
 2. **EOS 1300D / Rebel T6**
    - useful late DIGIC IV+ architectural cross-check;
@@ -144,6 +154,8 @@ The 200D is a different DIGIC-generation camera.
 ## Firmware evidence standard
 
 Every firmware-specific value promoted into executable 2000D.130 code must be backed by evidence from the exact firmware 1.3.0 image.
+
+The 1.1.0 baseline has its own evidence ledger. Do not transfer its values into 1.3.0 code without finding and validating the corresponding 1.3.0 behavior independently.
 
 For an address or structure decision, record at least:
 

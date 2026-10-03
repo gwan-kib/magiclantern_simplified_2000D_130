@@ -1,11 +1,13 @@
 # Canon EOS 2000D / Rebel T7 Magic Lantern Port — Issue Backlog
 
-Target: Canon EOS 1500D / 2000D / Rebel T7, firmware 1.3.0
+Target: Canon EOS 1500D / 2000D / Rebel T7. Firmware 1.1.0 is the verified-ROM reverse-engineering baseline; firmware 1.3.0 remains the eventual platform target and must be verified independently.
 
 Google Docs implementation plan:
 https://docs.google.com/document/d/1N2eZxIXB4-OioaZRMp44ALhHRFKak4nZpuIrtzg7mAU/edit
 
 > This backlog is intentionally staged. Do not skip milestone gates. The first meaningful success is a verified minimal payload, not a full Magic Lantern feature build.
+
+The existing ML2000D issues below retain their original 1.3.0 acceptance criteria. Use the analyzed 1.1.0 ROM to validate the workflow, startup hypotheses, and QEMU ROM1 path first; create/update corresponding 1.1.0 evidence before transferring any method or assumption. Never treat 1.1.0 values as proof for 1.3.0.
 
 ---
 
