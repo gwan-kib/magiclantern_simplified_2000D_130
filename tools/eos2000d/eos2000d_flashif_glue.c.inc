@@ -35,4 +35,3 @@ static bool eos_fi_mmio(unsigned address, unsigned width, bool write,
            "experimental c22539 controller latch", 0, 0);
     return true;
 }
-
