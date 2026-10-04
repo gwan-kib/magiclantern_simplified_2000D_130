@@ -165,11 +165,82 @@ def patch_texts(model_h: str, model_c: str, eos_c: str) -> tuple[str, str, str]:
     return model_h, model_c, eos_c
 
 
+def patch_flashif_texts(eos_h: str, eos_c: str) -> tuple[str, str]:
+    """Install the disabled-by-default experiment without altering firmware."""
+    eos_h = _insert_once(eos_h, '#include "target/arm/cpu.h"',
+                         '#include "hw/eos/eos2000d_flashif.h"\n', 'hw/eos/eos2000d_flashif.h')
+    eos_h = _insert_once(eos_h, '    uint32_t flash_state_machine;',
+                         '    EosFlashIF experimental_flashif;\n', 'EosFlashIF experimental_flashif;')
+    eos_c = _insert_once(eos_c, '#include "sysemu/sysemu.h"',
+                         '#include "sysemu/reset.h"\n', '#include "sysemu/reset.h"')
+    glue = Path(__file__).with_name('eos2000d_flashif_glue.c.inc').read_text()
+    eos_c = _insert_once(eos_c, '// io range access', glue, 'EOS2000D_FLASHIF_EXPERIMENT')
+    eos_c = _insert_once(eos_c, '    return eos_handler(addr, type, 0);',
+                         '    unsigned value = 0;\n'
+                         '    if (eos_fi_mmio(addr, size, false, &value)) return value;\n',
+                         'eos_fi_mmio(addr, size, false')
+    eos_c = _insert_once(eos_c, '    eos_handler(addr, type, val);',
+                         '    unsigned value = val;\n'
+                         '    if (eos_fi_mmio(addr, size, true, &value)) return;\n',
+                         'eos_fi_mmio(addr, size, true')
+    read_anchor = '    fprintf(stderr, "ROM read: %x %x\\n", (int)addr, (int)size);'
+    read_hook = r'''    /* EOS2000D_FLASHIF_ROM_READ: use the backing array for ordinary reads. */
+    EOSState *s = (EOSState *)((intptr_t) opaque & ~1);
+    unsigned rom_id = (intptr_t) opaque & 1;
+    if (s->experimental_flashif.enabled && rom_id == 1) {
+        uint32_t value = 0;
+        if (eos_fi_bank_read(&s->experimental_flashif, addr, size, &value)) {
+            eos_fi_log(s, "data-read", addr, size, value);
+            return value;
+        }
+        uint64_t raw = 0;
+        uint8_t *backing = memory_region_get_ram_ptr(&s->rom1);
+        for (unsigned i = 0; i < size; i++) raw |= (uint64_t)backing[addr + i] << (8 * i);
+        return raw;
+    }
+'''
+    eos_c = _insert_once(eos_c, read_anchor, read_hook, 'EOS2000D_FLASHIF_ROM_READ')
+    write_hook = r'''    /* EOS2000D_FLASHIF_ROM_WRITE: commands never modify ROM backing. */
+    if (rom_id == 1 && eos_fi_bank_write(&s->experimental_flashif, addr, size, value)) {
+        eos_fi_log(s, "command-write", addr, size, value);
+        memory_region_rom_device_set_romd(&s->rom1,
+                                          s->experimental_flashif.phase == EOS_FI_IDLE);
+        return;
+    }
+
+'''
+    eos_c = _insert_once(eos_c, '    if (strcmp(s->model->name, MODEL_NAME_1300D) == 0)',
+                         write_hook, 'EOS2000D_FLASHIF_ROM_WRITE')
+    selection = r'''    /* EOS2000D_FLASHIF_SELECTION: reject unsupported/ambiguous experiments. */
+    int flash_selection = eos_fi_select(&eos_state->experimental_flashif,
+                                        eos_state->model->name, eos2000d_options);
+    if (flash_selection < 0) {
+        fprintf(stderr, "Invalid experimental flash-id: requires 2000D firmware 110; "
+                "flash-id=c22539 and exact supported option tokens\n");
+        exit(1);
+    }
+    if (flash_selection)
+        fprintf(stderr, "[EOS2000D] EXPERIMENTAL flash-id=c22539; "
+                "physical T7 identity UNVERIFIED\n");
+
+'''
+    eos_c = _insert_once(eos_c, '    eos_init_cpu();', selection, 'EOS2000D_FLASHIF_SELECTION')
+    reset = r'''    /* EOS2000D_FLASHIF_RESET: registration only for the opt-in device. */
+    if (eos_state->experimental_flashif.enabled)
+        qemu_register_reset(eos_fi_qemu_reset, eos_state);
+
+'''
+    eos_c = _insert_once(eos_c, '    /* hijack machine option "firmware"', reset,
+                         'EOS2000D_FLASHIF_RESET')
+    return eos_h, eos_c
+
+
 def patch_tree(root: Path, check_only: bool = False) -> bool:
     targets = {
         "model_h": root / "hw/eos/model_list.h",
         "model_c": root / "hw/eos/model_list.c",
         "eos_c": root / "hw/eos/eos.c",
+        "eos_h": root / "hw/eos/eos.h",
     }
     missing = [str(path) for path in targets.values() if not path.is_file()]
     if missing:
@@ -181,7 +252,11 @@ def patch_tree(root: Path, check_only: bool = False) -> bool:
         patch_texts(original["model_h"], original["model_c"], original["eos_c"]),
     ))
 
-    changed = any(original[key] != patched[key] for key in original)
+    patched["eos_h"], patched["eos_c"] = patch_flashif_texts(original["eos_h"], patched["eos_c"])
+    helper = root / "hw/eos/eos2000d_flashif.h"
+    helper_text = Path(__file__).with_name("eos2000d_flashif.h").read_text()
+    changed = (any(original[key] != patched[key] for key in original) or
+               not helper.exists() or helper.read_text() != helper_text)
     if check_only:
         return changed
 
@@ -189,6 +264,8 @@ def patch_tree(root: Path, check_only: bool = False) -> bool:
         if original[key] != patched[key]:
             path.write_text(patched[key], encoding="utf-8")
 
+    if not helper.exists() or helper.read_text() != helper_text:
+        helper.write_text(helper_text, encoding="utf-8")
     return changed
 
 

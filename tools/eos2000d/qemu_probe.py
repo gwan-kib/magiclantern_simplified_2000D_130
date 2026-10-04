@@ -147,6 +147,9 @@ def probe(args, repeat: int) -> dict:
         selector = "110" + (";start=main" if args.start_main else "")
         if args.low_vectors:
             selector += ";vectors=low"
+        if args.flash_id:
+            selector += ";flash-id=" + args.flash_id
+            result["experimental_flash_id"] = args.flash_id
         command = [str(args.binary.resolve()), "-M", f"2000D,firmware={selector}",
                    "-drive", f"file={root}/cf.img,if=ide,format=raw",
                    "-drive", f"file={root}/sd.img,if=sd,format=raw",
@@ -172,7 +175,7 @@ def probe(args, repeat: int) -> dict:
                 monitor, debugger = Qmp(sockets / "qmp.sock"), Gdb(sockets / "gdb.sock")
                 debugger.command("?")
                 result["initial_registers"] = monitor.registers()
-                addresses = set(int(pc, 16) for pc in STARTUP_110_PCS) | set(args.stop_at)
+                addresses = set(int(pc, 16) for pc in STARTUP_110_PCS) | set(args.stop_at) | set(args.watch_at)
                 if args.flashif_trace:
                     addresses.update(qemu_flash_trace.TRACE_PCS)
                 addresses.add(0xFE0C3B34)  # Startup pointer literal, not an expected instruction.
@@ -268,6 +271,10 @@ def main():
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--log-dir", required=True, type=Path, help="private results directory outside Git")
     parser.add_argument("--start-main", action="store_true")
+    parser.add_argument("--flash-id", choices=["c22539"],
+                        help="explicit hypothetical JEDEC identity; not a physical T7 fact")
+    parser.add_argument("--watch-at", action="append", type=lambda value: int(value, 0), default=[],
+                        help="record registers at an additional PC and continue")
     parser.add_argument("--flashif-trace", action="store_true",
                         help="private register/width/command trace for the canonical flash path")
     parser.add_argument("--low-vectors", action="store_true")
