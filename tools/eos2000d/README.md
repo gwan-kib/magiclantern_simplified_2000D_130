@@ -53,3 +53,13 @@ For canonical firmware-110 flash diagnostics, add `--flashif-trace` to
 `flashif.jsonl` with executed access widths, registers and command descriptors,
 and rejects incomplete FlashIF log coverage. Firmware bytes and raw
 transactions stay outside Git. See `docs/2000D-110/flashif.md`.
+
+### Private firmware-110 task observations
+
+`qemu_probe.py --task-trace --sample-interval 5` requires explicit main-entry,
+low-vector and hypothetical C2 flags. It writes private task/IRQ/wait records
+and enables native MPU logging. `qemu_task_report.py PRIVATE_RUN_DIRECTORY`
+validates a completed bounded run and emits a private summary. See
+[post-startup evidence](../../docs/2000D-110/post-startup.md) for qualified
+fields, reproducible commands and timing limits. Never commit raw captures
+or infer complete boot from a waiting task or the final sampled PC.

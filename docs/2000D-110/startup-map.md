@@ -98,3 +98,15 @@ continued timer/HotPlug activity. This meaningful task milestone does not
 establish the next fatal blocker, MPU handshake, GUI or full boot. Baseline
 reset/main/low-vector results above remain unchanged without the opt-in ID.
 See [flashif.md](flashif.md) for arguments, geometry and the exact wait path.
+
+## Post-startup sequence boundary
+
+**QEMU + Experiment:** all eight named tasks enter and the scheduler remains
+active during repeated bounded 120-second runs. Startup dispatches callback
+FE0C1F9C, advances to sequence record 1, and awaits remaining mask 2 on
+queue 3A0004. Completion callback FE0C3A10 was registered by the property/
+Intercom setup; its incoming class-2/code-0 condition has not completed.
+The first queued Intercom request receives no MPU IRQ/response in the
+current model. Later callbacks FE0C2A1C, FE0C2D44, FE0C32F0, FE0C36EC and
+FE0C3824 are not observed executing. See [post-startup.md](post-startup.md)
+for exact state, field evidence and limits. PowerMgr WFI is not a deadlock.

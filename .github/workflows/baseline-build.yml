@@ -48,7 +48,7 @@ jobs:
         run: python3 -m unittest tools.eos2000d.test_rom_manifest
 
       - name: Test EOS 2000D QEMU scaffolding
-        run: python3 -m unittest tools.eos2000d.test_qemu_phase3 tools.eos2000d.test_qemu_flash_trace tools.eos2000d.test_flashif_model
+        run: python3 -m unittest tools.eos2000d.test_qemu_phase3 tools.eos2000d.test_qemu_flash_trace tools.eos2000d.test_flashif_model tools.eos2000d.test_qemu_task_trace
 
       - name: Test EOS 2000D later-phase preparation tooling
         run: python3 -m unittest tools.eos2000d.test_phase4_7_prep

@@ -51,7 +51,7 @@
       "symbol": "task_struct_variant",
       "address": null,
       "status": "unresolved",
-      "evidence": "No task/task_attr field layout or scheduler/current-task cross-check established."
+      "evidence": "Limited canonical creation/dispatch/store fields and current-task slot 31170 are qualified for firmware-110 observation in post-startup.md; full task/task_attr/context/linkage and physical structure variant remain unresolved."
     },
     {
       "symbol": "card_led_register_and_values",
@@ -199,5 +199,49 @@
     "mpu_handshake_verified": false,
     "gui_startup_verified": false,
     "reference": "flashif.md"
+  },
+  "post_startup_observation": {
+    "evidence_classes": [
+      "QEMU",
+      "Experiment"
+    ],
+    "reference": "post-startup.md",
+    "bounded_runs_seconds": [
+      60,
+      60,
+      120,
+      120
+    ],
+    "tasks_created_and_entered_per_run": 10,
+    "current_task_slot": "0x00031170",
+    "current_task_store_pcs": [
+      "0x00001980",
+      "0x00001D28",
+      "0x00001D94"
+    ],
+    "tcb_observation_offsets": {
+      "entry": "0x0C",
+      "argument": "0x10",
+      "wait_object": "0x14",
+      "allocated_stack_base": "0x1C",
+      "stack_size": "0x20",
+      "name_pointer": "0x24",
+      "id": "0x40",
+      "state_byte": "0x49",
+      "wait_kind_byte": "0x4D",
+      "saved_sp": "0x50"
+    },
+    "structure_variant_selected": false,
+    "power_wait_bypassed": false,
+    "hotplug_wait_bypassed": false,
+    "qemu_behavior_changed": false,
+    "first_unserved_dependency": "Initial Intercom request queues 04 02 00 00 and writes 0083DC00 to C022D0C4; zero-initialized QEMU MREQ latch has no falling edge, hence no IRQ50/36 or response; Startup retains mask 2. Correct initial latch state is unresolved.",
+    "startup_callback_observed": false,
+    "property_dispatches_per_120_second_run": 11,
+    "storage_startup_verified": false,
+    "gui_startup_verified": false,
+    "physical_flash_identity_verified": false,
+    "ki_019_resolved": false,
+    "full_boot_verified": false
   }
 }
