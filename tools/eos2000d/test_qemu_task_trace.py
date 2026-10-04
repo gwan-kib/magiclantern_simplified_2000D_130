@@ -1,5 +1,7 @@
 """Synthetic public fixtures: no Canon ROM, disassembly, or captured memory."""
 import json
+import copy
+import tempfile
 import subprocess
 import sys
 from pathlib import Path
@@ -159,6 +161,84 @@ class ParserTests(unittest.TestCase):
         with self.assertRaises(ValueError):parse_events(lines([event]))
         event=synthetic_event(step=2);event['current']=synthetic_task(qualified=False)
         with self.assertRaises(ValueError):parse_events(lines([created_event(),event]))
+
+
+    def test_intercom_payload_is_exact_hex_at_boundary_lengths(self):
+        for size in [1, 2, 128]:
+            event=synthetic_event('intercom-send')
+            event['registers'][1]=f'0x{size:08X}'
+            event['payload']='aB'*size
+            self.assertEqual(len(parse_events(lines([event]))),1)
+        for size,payload in [(0,''),(129,'00'*129),(2,'00  '),(2,' 00 '),
+                             (2,'00\t '),(2,'0G00'),(2,'000'),(2,'000000')]:
+            event=synthetic_event('intercom-send')
+            event['registers'][1]=f'0x{size:08X}'
+            event['payload']=payload
+            with self.subTest(size=size,payload=payload),self.assertRaises(ValueError):
+                parse_events(lines([event]))
+
+    def test_task_wait_object_must_survive_validation(self):
+        for value in [None, [], '0x123', 0]:
+            event=created_event();event['created']['object']=value
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                parse_events(lines([event]))
+        event=created_event();del event['created']['object']
+        with self.assertRaises(ValueError):parse_events(lines([event]))
+
+    def test_malformed_switch_tasks_have_line_errors(self):
+        for value in [None, [], 7, 'bad']:
+            event=synthetic_event('switch',2)
+            event.update(old=event['current'],new=value,committed_pointer='0x00002000')
+            with self.subTest(value=value),self.assertRaisesRegex(ValueError,'observer line 2'):
+                parse_events(lines([created_event(),event]))
+
+
+class ReportBoundaryTests(unittest.TestCase):
+    def result(self):
+        from .qemu_smoke import STARTUP_110_PCS, RAM_COPY_110, RAM_COPY_110_SHA256
+        from .qemu_workdir import ROM1_110_SHA256
+        return dict(returncode=0,rom1_sha256=ROM1_110_SHA256,firmware='110',
+            bounded_stop=True,experimental_flash_id='c22539',task_events=1,
+            ram_copy=dict(matches_rom_source=True,size=315804,
+                ram_sha256=RAM_COPY_110_SHA256,**{k:hex(v) for k,v in RAM_COPY_110.items()}),
+            stages=[dict(pc=pc) for pc in STARTUP_110_PCS])
+
+    def run_report(self,result,events=None):
+        script=Path(__file__).with_name('qemu_task_report.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            (root/'result.json').write_text(json.dumps(result))
+            (root/'tasks.jsonl').write_text(lines([created_event()] if events is None else events))
+            (root/'output.log').write_text('[MPU] FIXME: generic configuration\n')
+            return subprocess.run([sys.executable,str(script),tmp],capture_output=True,text=True)
+
+    def test_valid_report_and_repeated_invocation(self):
+        for _ in range(2):
+            completed=self.run_report(self.result())
+            self.assertEqual(completed.returncode,0,completed.stderr)
+            self.assertEqual(json.loads(completed.stdout)['events'],1)
+
+    def test_report_requires_canonical_startup_and_complete_event_count(self):
+        mutations=[('rom1_sha256','0'*64),('returncode',-9),('bounded_stop','true'),
+                   ('firmware','130'),('task_events',2),('task_events',True),
+                   ('stages',[]),('ram_copy',{})]
+        for key,value in mutations:
+            result=self.result();result[key]=value
+            with self.subTest(key=key):
+                completed=self.run_report(result)
+                self.assertEqual(completed.returncode,2,completed.stdout+completed.stderr)
+                self.assertNotIn('Traceback',completed.stderr)
+        for key in ['rom1_sha256','task_events']:
+            result=self.result();del result[key]
+            completed=self.run_report(result)
+            self.assertEqual(completed.returncode,2,completed.stdout+completed.stderr)
+
+    def test_nonobject_result_is_a_controlled_rejection(self):
+        for result in [None,[],7,'truncated']:
+            with self.subTest(result=result):
+                completed=self.run_report(result)
+                self.assertEqual(completed.returncode,2,completed.stderr)
+                self.assertNotIn('Traceback',completed.stderr)
 
 
 if __name__=='__main__':unittest.main()
