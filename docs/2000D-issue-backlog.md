@@ -25,8 +25,9 @@ unchanged.
 
 Tooling defects may be fixed and tested independently through public-safe CI.
 This does not establish fresh ROM analysis, archived replay, QEMU execution
-or physical-camera correctness. See “Known Issues audit” for the continuation
-record and exact environment limitation.
+or physical-camera correctness. Read [“Firmware 1.1.0 software continuation”](2000D-110/software-continuation.md)
+for the current record and exact environment limitation; “Known Issues audit”
+preserves the historical audit.
 
 ---
 
