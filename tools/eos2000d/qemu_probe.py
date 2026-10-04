@@ -97,7 +97,10 @@ class Gdb:
         checksum = read_byte() + read_byte()
         if checksum != f"{sum(data) % 256:02x}".encode():
             raise ValueError("GDB checksum mismatch")
-        self.sock.sendall(b"+")
+        try:
+            self.sock.sendall(b"+")
+        except BrokenPipeError as exc:
+            raise EOFError("GDB peer closed before reply acknowledgement") from exc
         return data.decode("ascii")
 
     def command(self, text):
