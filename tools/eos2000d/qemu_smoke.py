@@ -18,16 +18,34 @@ STARTUP_110_PCS = (
     "0xFE0C0000", "0xFE0C000C", "0xFE0C0638", "0xFE0C3A38",
     "0xFE0C3A6C", "0x00029898", "0xFE0C3B0C", "0x00005254", "0xFE129718",
 )
+# Canonical ROM1 startup literals and full copied-range hash, independently
+# recorded in docs/2000D-110/{startup-map,qemu}.md. No firmware bytes.
+RAM_COPY_110 = {
+    "source": 0xFE9E9C48, "destination": 0x1900, "end": 0x4EA9C,
+    "bss_end": 0x84D24,
+}
+RAM_COPY_110_SHA256 = "9c57fd4e542d72f3e96a6c5641e91d85f3edb9f1364dbba1049118c587d179e2"
 
 def check_startup_report(report: dict) -> tuple[bool, str]:
     """Require measured debugger stops, not translated-code or setup messages."""
-    if report.get("error") or report.get("returncode") != 0:
+    if not isinstance(report, dict):
+        return False, "invalid probe report object"
+    if report.get("error") or type(report.get("returncode")) is not int or report["returncode"] != 0:
         return False, "probe failed or QEMU exited abnormally"
     if report.get("rom1_sha256") != ROM1_110_SHA256:
         return False, "report does not identify the canonical 1.1.0 ROM1"
     copy = report.get("ram_copy", {})
-    if copy.get("matches_rom_source") is not True:
+    if not isinstance(copy, dict) or copy.get("matches_rom_source") is not True:
         return False, "ROM-to-RAM copy was not verified"
+    try:
+        bounds_match = all(isinstance(copy.get(key), str) and int(copy[key], 16) == value
+                           for key, value in RAM_COPY_110.items())
+    except ValueError:
+        bounds_match = False
+    if (not bounds_match or type(copy.get("size")) is not int or
+            copy["size"] != RAM_COPY_110["end"] - RAM_COPY_110["destination"] or
+            copy.get("ram_sha256") != RAM_COPY_110_SHA256):
+        return False, "canonical full ROM-to-RAM copy bounds, size or hash missing/mismatched"
     stages = report.get("stages", [])
     if not isinstance(stages, list) or any(not isinstance(stage, dict) for stage in stages):
         return False, "invalid debugger stage list"

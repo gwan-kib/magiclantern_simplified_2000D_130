@@ -118,15 +118,22 @@ def arm_register(packet: str, index: int) -> int:
 def verify_ram_copy(debugger: Gdb, rom: bytes) -> dict:
     # Canonical ROM1 startup literals at FE0C00DC..FE0C00E8; end is exclusive.
     source, destination, end, bss_end = struct.unpack_from("<4I", rom, 0xC00DC)
-    chunks = [debugger.memory(address, min(1024, end - address))
-              for address in range(destination, end, 1024)]
-    data = b"".join(chunks)
     offset = source & 0x1FFFFFF
+    if end <= destination or offset + end - destination > len(rom):
+        raise ValueError("invalid ROM-to-RAM copy bounds")
+    chunks = []
+    for address in range(destination, end, 1024):
+        size = min(1024, end - address)
+        chunk = debugger.memory(address, size)
+        if len(chunk) != size:
+            raise ValueError(f"incomplete RAM read at {address:#x}: expected {size}, got {len(chunk)}")
+        chunks.append(chunk)
+    data = b"".join(chunks)
     return {
         "source": hex(source), "destination": hex(destination), "end": hex(end),
         "bss_end": hex(bss_end), "size": len(data),
         "ram_sha256": hashlib.sha256(data).hexdigest(),
-        "matches_rom_source": data == rom[offset:offset + len(data)],
+        "matches_rom_source": data == rom[offset:offset + end - destination],
     }
 
 
