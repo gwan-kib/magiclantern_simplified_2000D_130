@@ -12,6 +12,11 @@ import json
 from pathlib import Path
 import re
 
+try:
+    from .qemu_smoke import check_startup_report
+except ImportError:
+    from qemu_smoke import check_startup_report
+
 HEX = re.compile(r"0x[0-9A-Fa-f]{8}\Z")
 OPERATIONS = frozenset(('sample', 'context', 'switch', 'created-tcb', 'create-call',
     'entry', 'sleep', 'message-receive', 'message-send', 'message-try-send',
@@ -43,7 +48,7 @@ def identity(task):
     pointer = address(task.get('pointer'))
     if pointer == '0x00000000':
         return pointer, None
-    for key in ('entry', 'id', 'name_pointer'):
+    for key in ('entry', 'id', 'name_pointer', 'object'):
         address(task.get(key))
     name = task.get('name')
     if name is not None and (not isinstance(name, str) or not name or len(name) > 63
@@ -91,6 +96,7 @@ def parse_events(text):
                 known[pointer] = {k:created[k] for k in ('name', 'entry', 'id', 'name_pointer')}
             if op == 'switch':
                 tasks += [event.get('old'), event.get('new')]
+                identity(event.get('new'))
                 if address(event.get('committed_pointer')) != address(event['new'].get('pointer')):
                     raise ValueError('switch store disagrees with selected task')
                 if event['old'] != event['current']:
@@ -115,7 +121,7 @@ def parse_events(text):
             if op == 'intercom-send':
                 payload = event.get('payload')
                 size = int(registers[1], 16)
-                if not isinstance(payload, str) or not 0 < size <= 128 or len(payload) != size * 2:
+                if not isinstance(payload, str) or not 0 < size <= 128 or len(payload) != size * 2 or not re.fullmatch(r'[0-9a-fA-F]+', payload):
                     raise ValueError('invalid bounded Intercom payload')
                 bytes.fromhex(payload)
             events.append(event)
@@ -198,9 +204,14 @@ def main():
     args = p.parse_args()
     try:
         result = json.loads((args.directory/'result.json').read_text())
-        if result.get('error') or not result.get('bounded_stop') or result.get('experimental_flash_id') != 'c22539':
+        ok, reason = check_startup_report(result)
+        if not ok:
+            raise ValueError(reason)
+        if result.get('bounded_stop') is not True or result.get('firmware') != '110' or result.get('experimental_flash_id') != 'c22539':
             raise ValueError('expected a completed bounded C2 experiment')
         events = parse_events((args.directory/'tasks.jsonl').read_text())
+        if integer(result.get('task_events'), 'task event count') != len(events):
+            raise ValueError('task event count disagrees with completed probe')
         report = summarize(events,parse_mmio((args.directory/'output.log').read_text(errors='replace')))
         report['assertion'] = extract_assertion(result)
         print(json.dumps(report,indent=2))
