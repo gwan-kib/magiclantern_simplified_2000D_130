@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -19,11 +20,12 @@ import tempfile
 import time
 
 try:
-    from . import qemu_flash_trace
+    from . import qemu_flash_trace, qemu_task_trace
     from .qemu_smoke import STARTUP_110_PCS
     from .qemu_workdir import validate_roms
 except ImportError:
     import qemu_flash_trace
+    import qemu_task_trace
     from qemu_smoke import STARTUP_110_PCS
     from qemu_workdir import validate_roms
 
@@ -140,6 +142,8 @@ def probe(args, repeat: int) -> dict:
         "repeat": repeat, "rom1_sha256": hashlib.sha256(rom).hexdigest(),
         "timeout_seconds": args.timeout, "stages": [],
     }
+    task_trace = getattr(args, "task_trace", False)
+    sample_interval = getattr(args, "sample_interval", 0)
     debugger = monitor = process = None
     # Keep Unix sockets short even when Windows-mounted results paths are long.
     with tempfile.TemporaryDirectory(prefix="eos-qemu-") as temporary:
@@ -158,6 +162,9 @@ def probe(args, repeat: int) -> dict:
                    "-D", str(directory / "trace.log"), "-S", "-qmp",
                    f"unix:{sockets}/qmp.sock,server,nowait", "-gdb",
                    f"unix:{sockets}/gdb.sock,server,nowait"]
+        if task_trace:
+            command[command.index("-d") + 1] += ",tasks,mpu"
+            result["task_trace_classification"] = "QEMU + Experiment; observation fields only"
         result["command"] = command
         environment = os.environ.copy()
         environment["QEMU_EOS_WORKDIR"] = str(root)
@@ -178,23 +185,46 @@ def probe(args, repeat: int) -> dict:
                 addresses = set(int(pc, 16) for pc in STARTUP_110_PCS) | set(args.stop_at) | set(args.watch_at)
                 if args.flashif_trace:
                     addresses.update(qemu_flash_trace.TRACE_PCS)
+                if task_trace:
+                    addresses.update(qemu_task_trace.TRACE_PCS)
+                    addresses.add(0x3CBC)
                 addresses.add(0xFE0C3B34)  # Startup pointer literal, not an expected instruction.
                 for address in addresses:
                     if debugger.command(f"Z1,{address:x},4") != "OK":
                         raise RuntimeError(f"Cannot set hardware breakpoint at {address:#x}")
                 deadline = time.monotonic() + args.timeout
                 debugger.resume()
+                next_sample = time.monotonic() + sample_interval
                 while True:
                     try:
-                        stop = debugger.receive(deadline)
+                        stop = debugger.receive(min(deadline,next_sample) if sample_interval else deadline)
                     except socket.timeout:
+                        if sample_interval and time.monotonic() < deadline:
+                            debugger.interrupt()
+                            sample = qemu_task_trace.capture(debugger,debugger.command("g"),arm_register,"sample")
+                            sample["step"] = result.get("task_events",0)+1
+                            result["task_events"] = sample["step"]
+                            with (directory/"tasks.jsonl").open("a") as stream:
+                                stream.write(json.dumps(sample)+"\n")
+                            next_sample = time.monotonic()+sample_interval
+                            debugger.resume()
+                            continue
                         result["bounded_stop"] = True
                         debugger.interrupt()
                         break
                     packet = debugger.command("g")
                     pc = arm_register(packet, 15)
+                    if sample_interval and time.monotonic() >= next_sample:
+                        sample = qemu_task_trace.capture(debugger, packet, arm_register, "sample")
+                        sample["step"] = result.get("task_events", 0) + 1
+                        result["task_events"] = sample["step"]
+                        with (directory / "tasks.jsonl").open("a") as stream:
+                            stream.write(json.dumps(sample) + "\n")
+                        next_sample = time.monotonic() + sample_interval
                     if not stop.startswith(("S05", "T05")):
                         raise RuntimeError(f"Unexpected debugger stop: {stop}")
+                    task_event = (qemu_task_trace.capture(debugger,packet,arm_register)
+                                  if task_trace and pc in qemu_task_trace.TRACE_PCS else None)
                     trace_event = None
                     if args.flashif_trace and pc in qemu_flash_trace.TRACE_PCS:
                         psr = re.search(r"PSR=([0-9a-fA-F]+)", monitor.registers())
@@ -202,21 +232,25 @@ def probe(args, repeat: int) -> dict:
                             raise RuntimeError("Cannot read ARM condition flags")
                         trace_event = qemu_flash_trace.capture(debugger, packet, arm_register,
                                                               int(psr.group(1), 16))
-                    if not args.flashif_trace or pc not in qemu_flash_trace.TRACE_PCS or pc in [int(p, 16) for p in STARTUP_110_PCS]:
+                    if (pc in [int(p, 16) for p in STARTUP_110_PCS] or pc in args.watch_at or pc in args.stop_at
+                            or (pc not in qemu_task_trace.TRACE_PCS and
+                                (not args.flashif_trace or pc not in qemu_flash_trace.TRACE_PCS))):
                         result["stages"].append({"pc": f"0x{pc:08X}", "stop": stop,
                                                  "registers": monitor.registers()})
                     if pc == 0xFE0C3A38:
                         result["ram_copy"] = verify_ram_copy(debugger, rom)
                         result["vectors_at_cstart"] = debugger.memory(0, 0x38).hex()
-                    if pc in args.stop_at:
+                    if pc in args.stop_at or (task_trace and pc == 0x3CBC):
                         result["stop_address"] = f"0x{pc:08X}"
+                        if pc == 0x3CBC:
+                            result["assertion"] = qemu_task_trace.assertion_capture(debugger, packet, arm_register)
                         sp = arm_register(packet, 13)
                         result["stack_at_stop"] = debugger.memory(sp, 0x80).hex()
                         break
                     if pc not in addresses:
                         raise RuntimeError(f"Unexpected breakpoint PC: {pc:#x}")
                     debugger.command(f"z1,{pc:x},4")
-                    if trace_event is not None:
+                    if trace_event is not None or task_event is not None:
                         stepped = debugger.command("s")
                         if not stepped.startswith(("S05", "T05")):
                             raise RuntimeError(f"Unexpected single-step stop: {stepped}")
@@ -224,12 +258,28 @@ def probe(args, repeat: int) -> dict:
                         after_pc = arm_register(after, 15)
                         if after_pc != (pc + 4) & 0xFFFFFFFF:
                             raise RuntimeError(f"Trace step interrupted at {after_pc:#x}")
-                        if trace_event["operation"] == "read":
+                        if task_event is not None:
+                            if task_event["operation"] == "switch":
+                                pointer=qemu_task_trace.u32(debugger.memory(qemu_task_trace.CURRENT_SLOT,4))
+                                if f"0x{pointer:08X}" != task_event["new"]["pointer"]:
+                                    raise RuntimeError("scheduler pointer did not match stepped switch")
+                                task_event["committed_pointer"]=f"0x{pointer:08X}"
+                            if task_event["operation"] == "irq-reason":
+                                reason = arm_register(after, 4)
+                                task_event.update(reason=reason, irq=reason // 4)
+                            if task_event["operation"] == "gpio-read":
+                                task_event["value"] = arm_register(after, 2)
+                            task_event["step"]=result.get("task_events",0)+1
+                            result["task_events"]=task_event["step"]
+                            with (directory/"tasks.jsonl").open("a") as stream:
+                                stream.write(json.dumps(task_event)+"\n")
+                        if trace_event is not None and trace_event["operation"] == "read":
                             trace_event["value"] = arm_register(after, trace_event["register"])
-                        trace_event["step"] = result.get("flashif_events", 0) + 1
-                        result["flashif_events"] = trace_event["step"]
-                        with (directory / "flashif.jsonl").open("a") as stream:
-                            stream.write(json.dumps(trace_event) + "\n")
+                        if trace_event is not None:
+                            trace_event["step"] = result.get("flashif_events", 0) + 1
+                            result["flashif_events"] = trace_event["step"]
+                            with (directory / "flashif.jsonl").open("a") as stream:
+                                stream.write(json.dumps(trace_event) + "\n")
                         if debugger.command(f"Z1,{pc:x},4") != "OK":
                             raise RuntimeError("Cannot restore trace breakpoint")
                     if time.monotonic() >= deadline:
@@ -275,6 +325,8 @@ def main():
                         help="explicit hypothetical JEDEC identity; not a physical T7 fact")
     parser.add_argument("--watch-at", action="append", type=lambda value: int(value, 0), default=[],
                         help="record registers at an additional PC and continue")
+    parser.add_argument("--task-trace", action="store_true", help="private read-only scheduler/task observations")
+    parser.add_argument("--sample-interval", type=float, default=0, help="periodic debugger sampling in seconds; zero disables")
     parser.add_argument("--flashif-trace", action="store_true",
                         help="private register/width/command trace for the canonical flash path")
     parser.add_argument("--low-vectors", action="store_true")
@@ -282,11 +334,15 @@ def main():
     parser.add_argument("--timeout", type=float, default=3)
     parser.add_argument("--stop-at", action="append", type=lambda value: int(value, 0), default=[])
     args = parser.parse_args()
+    if not math.isfinite(args.sample_interval) or args.sample_interval < 0 or (args.sample_interval and not args.task_trace):
+        parser.error("sample interval must be nonnegative and requires --task-trace")
+    if args.task_trace and not (args.start_main and args.low_vectors and args.flash_id == "c22539"):
+        parser.error("--task-trace requires the explicit C2/low-vector/main experiment")
     if args.flashif_trace and not (args.start_main and args.low_vectors):
         parser.error("--flashif-trace requires --start-main and --low-vectors")
     if args.low_vectors and not args.start_main:
         parser.error("--low-vectors requires --start-main")
-    if args.repeat < 1 or args.timeout <= 0:
+    if args.repeat < 1 or not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("repeat and timeout must be positive")
     if args.log_dir.resolve().is_relative_to(Path(__file__).resolve().parents[2]):
         parser.error("private firmware traces must stay outside the repository")
