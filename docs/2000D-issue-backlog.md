@@ -1,6 +1,6 @@
 # Canon EOS 2000D / Rebel T7 Magic Lantern Port — Issue Backlog
 
-Target: Canon EOS 1500D / 2000D / Rebel T7. Firmware 1.1.0 is the verified-ROM reverse-engineering baseline; firmware 1.3.0 remains the eventual platform target and must be verified independently.
+Target: Canon EOS 1500D / 2000D / Rebel T7. Firmware 1.1.0 is the primary implementation target; firmware 1.3.0 remains a separate future port and must be verified independently.
 
 Google Docs implementation plan:
 https://docs.google.com/document/d/1N2eZxIXB4-OioaZRMp44ALhHRFKak4nZpuIrtzg7mAU/edit
@@ -8,6 +8,25 @@ https://docs.google.com/document/d/1N2eZxIXB4-OioaZRMp44ALhHRFKak4nZpuIrtzg7mAU/
 > This backlog is intentionally staged. Do not skip milestone gates. The first meaningful success is a verified minimal payload, not a full Magic Lantern feature build.
 
 The existing ML2000D issues below retain their original 1.3.0 acceptance criteria. Use the analyzed 1.1.0 ROM to validate the workflow, startup hypotheses, and QEMU ROM1 path first; create/update corresponding 1.1.0 evidence before transferring any method or assumption. Never treat 1.1.0 values as proof for 1.3.0.
+
+## Primary firmware-1.1.0 work
+
+The user's camera remains on 1.1.0. Missing 1.3.0 evidence is not a dependency
+of independent 1.1.0 work. Original ML2000D acceptance criteria below remain
+unchanged.
+
+| Task | Current status | Dependencies / exit |
+|---|---|---|
+| [1.1.0 loader, reservation and minimum interfaces (#44)](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/44) | Open; partially actionable | Existing canonical ROM and private analysis/runtime access; verified exact-target loader, safe reservation, required interfaces and identity guards |
+| [1.1.0 Canon → ML diagnostic → Canon (#45)](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/45) | 🔴 Blocked | #44, private QEMU baseline and an operational continuation criterion; repeat twice and reject a broken loader |
+| [Initial Intercom state/protocol (#41 / KI-020)](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/41) | 🔴 Blocked | Independent initial-state and protocol evidence; guest transfer, actual response, callback and Startup advancement twice |
+| KI-019 installed flash identity | 🔴 Blocked | Independent chip/controller identification; C2/25/39 remains disabled by default and experimental |
+| KI-012 optional CF backend | 🟡 Ready / Fixable | Working QEMU build and paired SD-only/CF regression evidence; retain dummy-backend workaround meanwhile |
+
+Tooling defects may be fixed and tested independently through public-safe CI.
+This does not establish fresh ROM analysis, archived replay, QEMU execution
+or physical-camera correctness. See “Known Issues audit” for the continuation
+record and exact environment limitation.
 
 ---
 
