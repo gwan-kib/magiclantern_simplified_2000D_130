@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Install ARM build toolchain
         run: |
@@ -53,6 +55,11 @@ jobs:
       - name: Test EOS 2000D later-phase preparation tooling
         run: python3 -m unittest tools.eos2000d.test_phase4_7_prep
 
+      - name: Check Python sources and patch whitespace
+        run: |
+          python3 -m compileall -q tools/eos2000d
+          git diff --check HEAD^ HEAD
+
       - name: Enforce EOS 2000D evidence and safety gates
         run: |
           python3 tools/eos2000d/stub_evidence.py \
@@ -67,12 +74,15 @@ jobs:
       - name: Validate QEMU patcher against supported qemu-eos source
         run: |
           mkdir -p /tmp/qemu-eos/hw/eos
-          base="https://raw.githubusercontent.com/reticulatedpines/qemu-eos/qemu-eos-v4.2.1/hw/eos"
+          qemu_revision="4b667a1d3c08ab7a55835d15ddbd884fa754946d"
+          echo "qemu-eos source: $qemu_revision"
+          base="https://raw.githubusercontent.com/reticulatedpines/qemu-eos/$qemu_revision/hw/eos"
           curl --fail --silent --show-error --location "$base/model_list.h" -o /tmp/qemu-eos/hw/eos/model_list.h
           curl --fail --silent --show-error --location "$base/model_list.c" -o /tmp/qemu-eos/hw/eos/model_list.c
           curl --fail --silent --show-error --location "$base/eos.c" -o /tmp/qemu-eos/hw/eos/eos.c
           curl --fail --silent --show-error --location "$base/eos.h" -o /tmp/qemu-eos/hw/eos/eos.h
           python3 tools/eos2000d/qemu_eos_patch.py /tmp/qemu-eos
+          python3 tools/eos2000d/qemu_eos_patch.py /tmp/qemu-eos --check
           grep -q 'MODEL_NAME_2000D "2000D"' /tmp/qemu-eos/hw/eos/model_list.h
           grep -q 'firmware_version       = 130' /tmp/qemu-eos/hw/eos/model_list.c
           grep -q 'DEFINE_MACHINE(MODEL_NAME_2000D' /tmp/qemu-eos/hw/eos/eos.c
