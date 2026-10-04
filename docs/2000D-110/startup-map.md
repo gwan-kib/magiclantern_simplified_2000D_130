@@ -85,4 +85,16 @@ RAM `27C4` maps to ROM `FE9EAB0C` and returns a status, measured as zero.
 The manufacturer output at caller SP+20 is loaded into R0 at `FE0C1BC0`;
 R0=6 at `FE0C1BC4` therefore is not the routine's status return. Device/type
 and capacity at SP+16/+12 also must match an accepted tuple. See
-[flashif.md](flashif.md); no new startup stage beyond the assertion is verified.
+[flashif.md](flashif.md); the default path still asserts; opt-in progress is classified separately below.
+
+## Experimental C2 25 39 hypothesis
+
+**QEMU + Experiment**, not verified physical startup: two final runs with
+`flash-id=c22539` execute only RAM 2938, return at 29FC and continue through
+FE0C1DD0. Actual task-entry stops then reach FE0D3C94 (Startup), FE0C12AC
+(TaskMain), FE2C1438 (shared manager), FE2BA2F4 (PowerMgr), FE0C69DC (HotPlug).
+The final bounded snapshot is FE2BA330, a PowerMgr CP15 power-save wait with
+continued timer/HotPlug activity. This meaningful task milestone does not
+establish the next fatal blocker, MPU handshake, GUI or full boot. Baseline
+reset/main/low-vector results above remain unchanged without the opt-in ID.
+See [flashif.md](flashif.md) for arguments, geometry and the exact wait path.

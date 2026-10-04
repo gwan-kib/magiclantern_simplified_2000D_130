@@ -79,7 +79,7 @@ entry are unchanged. This assumes a missing bootloader handoff state, and does
 **not** verify the physical camera's reset/bootloader behavior. No firmware
 instructions, ROM bytes, interrupt masks, or peripheral responses are patched.
 
-### Next failure: flash-identification assertion
+### Default low-vector failure: flash-identification assertion
 
 With low vectors, both runs take the same failing path in startup routine
 `0xFE0C1B60`. The call at `0xFE0C1BBC` invokes RAM routine `0x000027C4`
@@ -93,8 +93,8 @@ routine with `r0=0xFE0C152C` (string `0`), `r1=0xFE0C1DF0` (source filename),
 The trace accesses the flash controller halfword registers
 `0xC00000DC..0xC00000FA`. The upstream `eos_handle_flashctrl` only models
 register `0x10`; these controller operations return zero. The
-identification routine nevertheless returns `0x0006`, which is not one of the
-accepted manufacturer codes; this measured value must not be described as a
+wrapper returns status zero and the caller loads manufacturer `0x0006`,
+which is not one of the accepted manufacturer codes; this measured value must not be described as a
 verified physical flash identity. The last logged
 MMIO operation before the assertion is a write to `0xC00000EA` from RAM
 `0x0001D2B0`, returning to `0x0001D30C`.
@@ -102,8 +102,8 @@ MMIO operation before the assertion is a write to `0xC00000EA` from RAM
 This is evidence of unsupported flash-controller behavior, not proof of the
 T7's actual flash manufacturer/device IDs or full transaction protocol. The
 nearby 1300D model uses the same incomplete handler and supplies no independently
-verified T7 identity. No flash ID was invented and no assertion was bypassed.
-Progress beyond this point requires new flash-interface evidence/emulation.
+verified T7 identity. This remains the default behavior. The opt-in hypothetical experiment below
+adds peripheral emulation without modifying the comparison or assertion.
 No MPU handshake or GUI-startup milestone was verified; upstream generic MPU
 spells/button-code fallbacks remain provisional.
 
@@ -172,7 +172,28 @@ The complete 06/9F/05 serial-flash transaction is now traced. The ID wrapper
 returns status zero; the caller then loads output manufacturer six. The six
 comes from the earlier 06 command byte written into the unmodeled bank window.
 All three accepted ID bytes are required; no installed physical chip identity
-is proven. The assertion remains unresolved and QEMU behavior is unchanged.
+is proven. The default assertion and physical identity remain unresolved; opt-in behavior
+is documented separately below.
 See [flashif.md](flashif.md) for the exact sequence, register map and evidence.
 Use `--timeout 15 --flashif-trace` for private diagnostics; complete MMIO-log
 coverage and ARM condition checks prevent incomplete or invented accesses.
+
+## Experimental C2 25 39 hypothesis
+
+Only `2000D,firmware=110;start=main;vectors=low;flash-id=c22539` activates the
+hypothetical SPI NOR state machine. The machine emits an explicit experimental
+warning. The exact option string must be shell-quoted because of semicolons.
+The probe accepts `--flash-id c22539`; omit it to preserve all previous modes.
+
+Two pre-change and two final default-low-vector traces retain 06/00/00 and
+3CBC. Normal reset and default direct-main retain their high-vector outcomes,
+twice each. With the opt-in hypothesis, two final 30-second traces return
+C2/25/39, select only initializer 2938, pass the comparison naturally and reach
+Startup, TaskMain, manager, PowerMgr and HotPlug task entries. The repeated
+final PC FE2BA330 is PowerMgr's power-save wait; it is not proof of a fatal
+blocker. MPU handshake, GUI, full boot and physical identity stay unresolved.
+
+All behavior after supplying the ID is **QEMU + Experiment**. See
+[flashif.md](flashif.md#experimental-c2-25-39-hypothesis-2026-10-04) for state,
+limits, complete reproduction, geometry, registers and protocol comparison.
+No ROM bytes, assertion, accepted-ID comparison or ML payload are modified.

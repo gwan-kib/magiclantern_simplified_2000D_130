@@ -1,7 +1,9 @@
 # Firmware 1.1.0 FlashIF investigation
 
-Status: the Startup.c line 220 assertion remains unresolved. No flash identity
-is invented. No qemu-eos behavior or Canon instructions were changed.
+Status: the default Startup.c line 220 assertion and physical flash identity
+remain unresolved (KI-019). The explicitly opt-in C2 25 39 experiment passes
+that comparison and advances into task activity; it does not identify the
+physical chip. The baseline sections below describe the pre-experiment model.
 
 ## Evidence classes
 
@@ -20,7 +22,9 @@ is invented. No qemu-eos behavior or Canon instructions were changed.
 Before any tooling change, two assertion stops and two identification stops
 reproduced the existing failure with canonical ROM1. Both assertion runs
 passed all nine ordered startup stages and the full 315,804-byte RAM copy.
-The emulator source and binary remained unchanged throughout this task.
+The emulator source and binary remained unchanged during the original
+PR #38 investigation. That historical result is distinct from the opt-in
+experiment below.
 
 `qemu_probe.py --flashif-trace` instruments the canonical driver's observed
 MMIO access PCs, command descriptor entry, bank byte accesses, status return
@@ -155,7 +159,7 @@ Primary references:
 - [Linux Spansion device table](https://github.com/torvalds/linux/blob/master/drivers/mtd/spi-nor/spansion.c): 01 02 19 is a prefix used by 32 MiB devices; extended IDs distinguish variants.
 - [4000D developer report](https://www.magiclantern.fm/forum/index.php?topic=23369): a historical workaround changes a 1300D emulator ID. It is reference-camera evidence only and was not copied. The pinned qemu-eos source has the same incomplete handler for 1200D/1300D, no 4000D entry and no independently established 2000D identity.
 
-## Implementation decision and next evidence
+## Pre-experiment implementation decision and next evidence
 
 No controller state machine was installed. The transaction structure is now
 known, but a complete RDID response fundamentally needs an unknown physical
@@ -181,3 +185,154 @@ python3 tools/eos2000d/qemu_probe.py /private/workdir \
 AI provenance: Codex authored this investigation's debugger tooling, tests and
 analysis notes. Static conclusions were checked against canonical ROM1 and
 runtime claims against repeated measured runs. Raw evidence stays outside Git.
+
+## Experimental C2 25 39 hypothesis (2026-10-04)
+
+**QEMU + Experiment. Physical identity: Unresolved. KI-019 stays open.**
+The user explicitly authorized testing this accepted tuple as a hypothesis.
+It is available only through `2000D,firmware=110;flash-id=c22539`. It is not
+installed in platform constants, release metadata or default emulator behavior.
+
+Two pre-change traces reproduced the nine-stage startup chain, full RAM copy,
+06/9F/05, caller ID 06/00/00 and assertion 3CBC. The final rebuilt binary
+also reproduces normal-reset FFFF0004, default direct-main high-vector failure,
+and low-vector-only 06/00/00 plus 3CBC, twice per mode.
+
+### Peripheral implementation
+
+The public C helper is `tools/eos2000d/eos2000d_flashif.h`; the patcher embeds
+`eos2000d_flashif_glue.c.inc` in pinned qemu-eos. State belongs to EOSState,
+not a firmware PC: phase IDLE/RDID/RDSR/UNSUPPORTED, last command, ID index,
+WEL, WIP, address-mode latch, and sixteen controller halfword latches.
+
+- Reset clears phase, registers, WEL, WIP, index and four-byte mode; selection
+  survives. The peripheral QEMU reset callback restores ROMD. Normal initial
+  machine reset still starts at FFFF0000; the existing EOS board does not reset
+  the stopped ARM PC through QMP system_reset, a separate board limitation.
+- 06 sets WEL when idle; 04 clears it. RDID and RDSR retain WEL.
+- 9F restarts the three-byte RDID stream C2/25/39. Reads beyond the three
+  modeled bytes return FF with a saturated index. This bounded behavior is an
+  explicit experiment assumption, not a verified physical continuation rule.
+- 05 composes actual modeled WIP bit 0 and WEL bit 1. The observed response is
+  02 after WREN. Other status bits are zero, not evidence of physical reset
+  values. Program/erase is unsupported, so no operation sets busy and no fake
+  busy completion is implemented. Synthetic tests also exercise busy=true.
+- B7/E9 set/clear an address-mode latch when not busy. E9 is observed at runtime;
+  B7 is its tested counterpart. Addressed serial reads/writes, EAR and the full
+  configuration register are not implemented by this latch.
+- Unknown commands return FF during byte data reads and have no WEL or storage
+  side effects. Writes outside the observed command window are intercepted as
+  unsupported rather than changing the canonical ROM backing array.
+
+The observed read descriptor uses DC high byte for the command and DE=0707;
+DC=0 or invalid DE ends data mode. The command-write descriptor requires
+EC=EE=0707 and an offset-zero bank byte store. Controller reads/writes preserve
+1/2/4-byte little-endian accesses at DC..FB, including partial updates. Aliasing
+uses the existing upstream low-nine-bit convention, not a new hardware claim.
+ROMD is disabled during serial data phases; ordinary instruction/data reads
+fall back to the canonical array. No accepted-ID comparison, assertion, ROM
+instruction, or PC-based peripheral response is patched.
+
+Strict experiment tokens allow `start=main`, `vectors=low` and
+`flash-id=c22539` once each, reject empty/unknown/duplicate tokens and require
+start=main for vectors=low. Model must be exactly 2000D and firmware prefix
+exactly `110;`. Without flash-id the prior option parser and I/O fallbacks are
+preserved. Other IDs deliberately remain unsupported.
+
+Diagnostics include phase, command, ID index, WEL, WIP, address byte count and
+hypothesis label. Exact FlashIF MMIO equality, ARM condition checks and all nine
+startup smoke requirements remain intact. The trace also observes all three
+initializer entries, geometry registration and task-creation arguments. Raw
+instructions, memory, registers and detailed traces stay private.
+
+### Measured initializer and later commands
+
+Both final repetitions return C2/25/39, wrapper status zero and extra output
+zero; only RAM 2938 executes. RAM 2B0C and 2CE4 are monitored and not hit.
+At entry R0=F8000000, LR=FE0C1BE8. The initializer allocates 0x11E8 bytes;
+measured table pointer is 002D0488 and RAM 39DF0 changes to dispatch index 1.
+
+At 29DC, R0=0, R1=002D0488, R2=2664, R3=28AC, R4=02000000, R5=40,
+R6=002D0488, R7=F8000000. The subsequent registration call FE2B8DC4 returns
+R0=0 at 29E4. The table contains 64 ranges of 4096 bytes followed by 508 ranges
+of 65536 bytes, contiguous over exactly 32 MiB, plus terminator (FFFF,0).
+Those sizes describe Canon's installed erase map; no erase is actually issued.
+The driver source-name string contains `Install_MX66U51235F`; that shared
+installer name does not establish the physical part, and its nominal part
+name must not override the measured 32 MiB geometry.
+
+The full measured descriptor command sequence is:
+`06 -> 9F -> 05 -> 06 -> 9F -> 05 -> E9`.
+Both ID reads are C2/25/39; both status reads are 02. Each complete trace matches
+353 controller accesses and 20 bank-byte accesses. The controller returns to
+its saved zero descriptor state. No timing calibration or real serial clock
+rate is established by register latching.
+
+### Protocol comparison: Related, not chip identification
+
+The primary [Macronix MX25U25635F datasheet](https://www.macronix.com/Lists/Datasheet/Attachments/8663/MX25U25635F%2C%201.8V%2C%20256Mb%2C%20v1.5.pdf)
+provides C2/25/39, 256 Mbit capacity, WREN/RDID/RDSR, 4 KiB sectors and 64 KiB
+blocks, 256-byte page programming, and B7/E9 address-mode commands.
+
+| Finding | Classification for C2 hypothesis |
+|---|---|
+| Three-byte ID accepted; 32 MiB geometry; 4 KiB/64 KiB erase ranges | Consistent, conditional on supplied ID |
+| WREN, repeated ID, WIP polling, E9 | Consistent protocol context |
+| Installed driver source-name string | Neutral; shared code name is not part identity |
+| Page size, erase/program busy timing, reset commands, quad/dual setup, protection bits | Neutral/insufficient; not exercised |
+| Upper-bank addressed reads, EAR/configuration register | Neutral/insufficient; latch is not a complete addressing model |
+| Physical part, voltage, wiring and controller reset state | Unresolved |
+
+No observation proves the installed chip; no inconsistency was established in
+this limited exercised path. Other accepted IDs were not modeled or compared.
+
+### New bounded startup result
+
+**QEMU + Experiment:** the line-220 assertion is not taken. The initializer
+returns at 29FC, startup routine FE0C1B60 reaches its task-creation call and
+return at FE0C1DD0, then actual task-entry breakpoints reach Startup FE0D3C94,
+TaskMain FE0C12AC, shared manager entry FE2C1438, PowerMgr FE2BA2F4 and HotPlug
+FE0C69DC, in the same order in two bounded repetitions. Creation calls at RAM
+38FC record PowerMgr, DbgMgr, Startup, TaskMain, PropMgr, NFCMgr, HotPlug and
+EventMgr. Names are caller arguments; no task-structure offsets are promoted.
+
+Both 30-second runs end at PC FE2BA330, SP=0014BB18, LR=FE2BA314, R0=0,
+R1=1, R4=C0400000, R5=39E44, PSR=60000093. Static code connects the PowerMgr
+creation call FE2BA42C -> RAM 38FC, entry FE2BA2F4 and loop FE2BA304 through
+save-interrupt-state 3074 -> FE0C0920, conditional CP15 power-save instruction
+FE2BA32C, PC FE2BA330, and restore-state 3078 -> FE0C0934 before looping.
+This is a repeatable power-management wait, **not proof of a deadlock or the
+next fatal assertion**. Timer/IRQ and HotPlug activity continues in the trace.
+The meaningful stable milestone is task startup; a later fatal blocker is
+still unresolved. No full-boot claim follows from the bounded timeout.
+
+Post-identification MMIO includes timer C02431xx/C02432xx, interrupt/DMA setup,
+and HotPlug reads at FE121ED8 of C022F48C returning 10C with callers FE0C69F4
+and FE0C6A7C. Generic SD-detect labels do not prove SD initialization. No MPU
+handshake, GUI entry, display initialization or mounted file system is verified.
+Generic upstream MPU spell/button fallback warnings are configuration messages,
+not executed handshake evidence. KI-019 remains open; no new independently
+justified peripheral blocker is asserted from an idle-task snapshot.
+
+### Reproduction and validation
+
+```bash
+python3 tools/eos2000d/qemu_probe.py /private/workdir \
+  --binary /path/to/qemu-system-arm --log-dir /private/c22539 \
+  --start-main --low-vectors --flash-id c22539 --stop-at 0x3cbc \
+  --watch-at 0x29fc --watch-at 0xfe0c1dd0 --watch-at 0xfe0d3c94 \
+  --watch-at 0xfe0c12ac --watch-at 0xfe2ba2f4 --watch-at 0xfe0c69dc \
+  --watch-at 0xfe2c1438 --repeat 2 --timeout 30 --flashif-trace
+```
+
+The expanded suite has 56 passing tests, including 19 compiled C state-machine
+cases and an integration test for idempotence/default fallbacks. Actual QEMU
+CLI checks reject wrong model, firmware, ID, duplicate options and low vectors
+without main entry. A QMP system_reset clears device state during an active
+RDID transaction; it does not establish a complete board/CPU reset path. Fresh pinned source patched by the public script exactly
+matches the compiled source; the script is idempotent. Firmware-130 evidence,
+feature and pre-ROM policy gates pass; reference-camera build is checked by CI.
+
+AI provenance: Codex authored the opt-in C helper/glue, patcher changes,
+synthetic tests, read-only debugger observers and analysis/documentation.
+No physical camera/SD action or ML payload/injection was performed.
