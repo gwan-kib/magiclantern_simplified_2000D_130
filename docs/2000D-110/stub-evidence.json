@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "target": {
+    "camera": "Canon EOS 2000D / Rebel T7",
+    "firmware": "1.1.0",
+    "rom1_sha256": "7c17f49c5521ffe2fa140371a1bcb6353874b94d5c2669982b86f35e639c1a12"
+  },
+  "entries": [
+    {
+      "symbol": "firmware_entry",
+      "address": "0xFE0C0000",
+      "status": "verified",
+      "evidence": "ROM1 offset 0xC0000 contains ARM branch 0xEA000001 to 0xFE0C000C; rescue log reports ROMBASEADDR 0xFE0C0000."
+    },
+    {
+      "symbol": "cstart",
+      "address": "0xFE0C3A38",
+      "status": "high-confidence",
+      "evidence": "Entry-path branch at 0xFE0C0638; startup prologue; calls verified below."
+    },
+    {
+      "symbol": "bzero32",
+      "address": "0x00029898",
+      "status": "verified-call-target",
+      "evidence": "BL from 0xFE0C3A6C resolves to 0x00029898; semantic label follows historical evidence."
+    },
+    {
+      "symbol": "create_init_task",
+      "address": "0x00005254",
+      "status": "verified-call-target",
+      "evidence": "BL from 0xFE0C3B0C resolves to 0x00005254; semantic label follows historical evidence."
+    },
+    {
+      "symbol": "init_task",
+      "address": "0xFE129718",
+      "status": "strong-candidate",
+      "evidence": "Pointer literal at 0xFE0C3B34 targets code with a function prologue; task semantics need confirmation."
+    },
+    {
+      "symbol": "historical_bss_patch_signature",
+      "address": "0xFE0C1B74",
+      "status": "rejected",
+      "evidence": "Observed word is 0xE3A0160D, not historical expected 0xE3A01732; no alternate patch inferred."
+    },
+    {
+      "symbol": "task_struct_variant",
+      "address": null,
+      "status": "unresolved",
+      "evidence": "No task/task_attr field layout or scheduler/current-task cross-check established."
+    },
+    {
+      "symbol": "card_led_register_and_values",
+      "address": null,
+      "status": "unresolved",
+      "evidence": "No confirmed effective LED access; literal 0xC0220134 absent; values 0x46/0x44 unsupported."
+    },
+    {
+      "symbol": "DryosDebugMsg",
+      "address": "0xFE11F3C8",
+      "status": "unverified-candidate",
+      "evidence": "Plausible function prologue only; call/string cross-references not confirmed."
+    },
+    {
+      "symbol": "RESTARTSTART_ram_reservation",
+      "address": "0x00C80000",
+      "status": "unresolved",
+      "evidence": "Historical RAM reservation lead only; RAM/BSS/allocator boundaries and overlap remain unknown."
+    }
+  ]
+}

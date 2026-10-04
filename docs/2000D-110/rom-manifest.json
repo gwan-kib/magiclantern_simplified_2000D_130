@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "target": {
+    "camera": "Canon EOS 2000D / Rebel T7",
+    "model_id": "0x432",
+    "firmware": "1.1.0"
+  },
+  "source_files_not_committed": true,
+  "images": {
+    "ROM0.BIN": {
+      "size_bytes": 33554432,
+      "logged_md5": "66354cabd287d45faae4c6158ba09606",
+      "actual_md5": "387d96a501c80ee5a1291e6a4bbbb636",
+      "actual_sha256": "776ca15c7c087423135729a606fcf961f4e3f77a9bdd01113ae4f7fb69343557",
+      "logged_hash_matches": false,
+      "structural_assessment": "All 8,388,608 little-endian words equal 0x00010000; unusable as a verified Canon ROM image."
+    },
+    "ROM1.BIN": {
+      "size_bytes": 33554432,
+      "logged_md5": "885bc2112958e86a0bf81c591ba482cc",
+      "actual_md5": "885bc2112958e86a0bf81c591ba482cc",
+      "actual_sha256": "7c17f49c5521ffe2fa140371a1bcb6353874b94d5c2669982b86f35e639c1a12",
+      "logged_hash_matches": true,
+      "main_firmware_offset": "0xC0000",
+      "reported_main_firmware_address": "0xFE0C0000",
+      "entry_word_le": "0xEA000001",
+      "entry_branch_target": "0xFE0C000C"
+    }
+  },
+  "mapping": {
+    "qemu_eos_model": "qemu-eos-v4.2.1 DIGIC IV defaults and EOS 2000D 32 MiB ROM1 profile",
+    "rom1_bank_base": "0xF8000000",
+    "rom1_alias_bases": ["0xF8000000", "0xFA000000", "0xFC000000", "0xFE000000"],
+    "entry_addresses_by_alias": ["0xF80C0000", "0xFA0C0000", "0xFC0C0000", "0xFE0C0000"],
+    "physical_silicon_mapping_verified": false,
+    "rom0_loaded_in_110_qemu_profile": false
+  }
+}

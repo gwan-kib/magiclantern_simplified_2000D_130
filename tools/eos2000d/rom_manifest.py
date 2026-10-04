@@ -20,7 +20,7 @@ import struct
 from pathlib import Path
 from typing import Any
 
-DEFAULT_BASE = 0xFE0C0000
+DEFAULT_BASE = None  # A bank base cannot be inferred from a firmware entry.
 DEFAULT_EXPECTED_FIRST_WORD = 0xEA000001
 DEFAULT_TERMS = (
     "1.3.0",
@@ -45,7 +45,7 @@ def _arm_branch_target(address: int, word: int) -> int | None:
     return (address + 8 + (imm24 << 2)) & 0xFFFFFFFF
 
 
-def _ascii_evidence(data: bytes, base: int, terms: tuple[str, ...]) -> list[dict[str, Any]]:
+def _ascii_evidence(data: bytes, base: int | None, terms: tuple[str, ...]) -> list[dict[str, Any]]:
     evidence: list[dict[str, Any]] = []
     lowered_terms = tuple(term.lower() for term in terms)
 
@@ -62,7 +62,7 @@ def _ascii_evidence(data: bytes, base: int, terms: tuple[str, ...]) -> list[dict
         evidence.append(
             {
                 "file_offset": f"0x{match.start():X}",
-                "virtual_address": f"0x{base + match.start():08X}",
+                "virtual_address": None if base is None else f"0x{base + match.start():08X}",
                 "text": text,
             }
         )
@@ -73,30 +73,59 @@ def _ascii_evidence(data: bytes, base: int, terms: tuple[str, ...]) -> list[dict
     return evidence
 
 
-def inspect_image(path: Path, base: int = DEFAULT_BASE) -> dict[str, Any]:
+def inspect_image(
+    path: Path, base: int | None = DEFAULT_BASE, *, main_offset: int = 0,
+    aliases: tuple[int, ...] = (), firmware: str | None = None,
+) -> dict[str, Any]:
     data = path.read_bytes()
     sha256 = hashlib.sha256(data).hexdigest()
+
+    if main_offset < 0 or main_offset + 4 > len(data):
+        raise ValueError("main firmware offset must point to a complete word in the image")
+    for address in (() if base is None else (base,)) + aliases:
+        if address < 0 or address + len(data) > 0x100000000:
+            raise ValueError("ROM bank/alias interval must fit in the 32-bit address space")
+    if aliases and base is None:
+        raise ValueError("alias addresses require an explicit ROM bank base")
 
     first_word = None
     branch_target = None
     if len(data) >= 4:
         first_word = struct.unpack_from("<I", data, 0)[0]
-        branch_target = _arm_branch_target(base, first_word)
+        branch_target = None if base is None else _arm_branch_target(base, first_word)
+    entry_word = struct.unpack_from("<I", data, main_offset)[0]
+    entry_address = None if base is None else base + main_offset
 
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "target": {
             "camera": "Canon EOS 1500D / 2000D / Rebel T7",
-            "firmware": "1.3.0",
+            "firmware": firmware,
         },
         "source": {
             # Keep local paths out of a manifest that may be committed.
             "filename": path.name,
             "byte_size": len(data),
             "sha256": sha256,
+            "md5": hashlib.md5(data).hexdigest(),
         },
         "mapping": {
-            "assumed_base": f"0x{base:08X}",
+            "bank_base": None if base is None else f"0x{base:08X}",
+            "main_firmware_offset": f"0x{main_offset:X}",
+            "main_firmware_address": None if entry_address is None else f"0x{entry_address:08X}",
+            "entry_word_le": f"0x{entry_word:08X}",
+            "entry_word_matches": entry_word == DEFAULT_EXPECTED_FIRST_WORD,
+            "decoded_entry_branch_target": None if entry_address is None else (
+                None if (target := _arm_branch_target(entry_address, entry_word)) is None else f"0x{target:08X}"
+            ),
+            "aliases": [
+                {
+                    "bank_base": f"0x{alias:08X}",
+                    "main_firmware_address": f"0x{alias + main_offset:08X}",
+                    "decoded_entry_branch_target": None if (target := _arm_branch_target(alias + main_offset, entry_word)) is None else f"0x{target:08X}",
+                }
+                for alias in aliases
+            ],
             "first_word_le": None if first_word is None else f"0x{first_word:08X}",
             "expected_first_word": f"0x{DEFAULT_EXPECTED_FIRST_WORD:08X}",
             "expected_first_word_matches": first_word == DEFAULT_EXPECTED_FIRST_WORD,
@@ -104,7 +133,7 @@ def inspect_image(path: Path, base: int = DEFAULT_BASE) -> dict[str, Any]:
                 None if branch_target is None else f"0x{branch_target:08X}"
             ),
         },
-        "ascii_evidence": _ascii_evidence(data, base, DEFAULT_TERMS),
+        "ascii_evidence": _ascii_evidence(data, base, DEFAULT_TERMS + (() if firmware is None else (firmware,))),
     }
 
 
@@ -112,11 +141,15 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("image", type=Path, help="raw ROM/firmware image to inspect")
     parser.add_argument(
-        "--base",
+        "--bank-base", "--base",
+        dest="base",
         type=lambda value: int(value, 0),
         default=DEFAULT_BASE,
-        help="virtual base address for a raw ROM image (default: 0xFE0C0000)",
+        help="address of image byte zero; --base is a compatibility alias (no inferred default)",
     )
+    parser.add_argument("--main-offset", type=lambda value: int(value, 0), default=0)
+    parser.add_argument("--alias-base", type=lambda value: int(value, 0), action="append", default=[])
+    parser.add_argument("--firmware", help="analyst-supplied firmware label; confirm independently")
     parser.add_argument(
         "--output",
         type=Path,
@@ -124,7 +157,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    manifest = inspect_image(args.image, args.base)
+    try:
+        manifest = inspect_image(args.image, args.base, main_offset=args.main_offset,
+                                 aliases=tuple(args.alias_base), firmware=args.firmware)
+    except ValueError as exc:
+        parser.error(str(exc))
     rendered = json.dumps(manifest, indent=2, sort_keys=True) + "\n"
 
     if args.output:

@@ -57,6 +57,31 @@ MACHINE_INIT = r'''static void eos_2000D_machine_init(MachineClass *mc)
 
 '''
 
+FIRMWARE_110_PROFILE = r'''    /* EOS2000D_110_ROM1_ONLY: exact local 1.1.0 dump; never load invalid ROM0. */
+    const char *eos2000d_options = qemu_opt_get(qemu_get_machine_opts(), "firmware");
+    if (strcmp(eos_state->model->name, MODEL_NAME_2000D) == 0 &&
+        eos2000d_options && atoi(eos2000d_options) == 110)
+    {
+        eos_state->model->firmware_version = 110;
+        eos_state->model->rom0_size = 0;
+        eos_state->model->rom1_addr = 0xF8000000;
+        eos_state->model->rom1_size = 0x02000000;
+        eos_state->model->firmware_start = 0xFE0C0000;
+    }
+
+'''
+
+FIRMWARE_110_MAIN_ENTRY = r'''    /* EOS2000D_110_MAIN_ENTRY: explicit experiment, not a reset/bootloader claim. */
+    if (strcmp(eos_state->model->name, MODEL_NAME_2000D) == 0 &&
+        options && atoi(options) == 110 && strstr(options, "start=main"))
+    {
+        eos_state->cpu0->env.regs[15] = eos_state->model->firmware_start;
+        fprintf(stderr, "[EOS2000D] direct main entry: 0x%08X (reset bypassed)\n",
+                eos_state->cpu0->env.regs[15]);
+    }
+
+'''
+
 
 class PatchError(RuntimeError):
     pass
@@ -97,6 +122,22 @@ def patch_texts(model_h: str, model_c: str, eos_c: str) -> tuple[str, str, str]:
         "DEFINE_MACHINE(MODEL_NAME_A1100, eos_A1100_machine_init)",
         "DEFINE_MACHINE(MODEL_NAME_2000D, eos_2000D_machine_init)\n",
         "DEFINE_MACHINE(MODEL_NAME_2000D, eos_2000D_machine_init)",
+    )
+
+    if "EOS2000D_110_ROM1_ONLY" not in eos_c:
+        init_anchor = "static void eos_init_common(void)\n{\n    eos_init_cpu();"
+        if init_anchor not in eos_c:
+            raise PatchError("required anchor not found: eos_init_common")
+        eos_c = eos_c.replace(
+            init_anchor,
+            "static void eos_init_common(void)\n{\n" + FIRMWARE_110_PROFILE + "    eos_init_cpu();",
+            1,
+        )
+    eos_c = _insert_once(
+        eos_c,
+        '    if (options)\n    {\n        /* fixme: reinventing the wheel */',
+        FIRMWARE_110_MAIN_ENTRY,
+        "EOS2000D_110_MAIN_ENTRY",
     )
 
     return model_h, model_c, eos_c
