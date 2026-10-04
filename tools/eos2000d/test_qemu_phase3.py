@@ -218,6 +218,197 @@ class DebuggerPacketTests(unittest.TestCase):
             arm_register("00", 15)
 
 
+    def test_receive_enforces_absolute_deadline_during_packet(self):
+        from unittest.mock import patch
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            server.sendall(b'$OK#9a')
+            with patch('tools.eos2000d.qemu_probe.time.monotonic',side_effect=[1,1.5,2,3]):
+                with self.assertRaises(socket.timeout):debugger.receive(deadline=2.5)
+        finally:
+            client.close();server.close()
+
+    def test_receive_rejects_oversized_packet_without_ack(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            data=b'A'*4097
+            server.sendall(b'(unittest.TestCase):
+    def test_110_needs_canonical_rom1_and_forbids_rom0(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            messages = prepare(root, True, False, "110")
+            self.assertTrue(camera_dir(root, "110").is_dir())
+            self.assertTrue(any("ROM1.BIN" in message for message in messages))
+            self.assertFalse(any("ROM0.BIN" in message for message in messages))
+            (camera_dir(root, "110") / "ROM1.BIN").write_bytes(b"invalid synthetic image")
+            (camera_dir(root, "110") / "ROM0.BIN").write_bytes(b"invalid")
+            errors = validate_roms(root, "110")
+            self.assertTrue(any("canonical" in error for error in errors))
+            self.assertTrue(any("ROM0" in error for error in errors))
+
+    def test_main_entry_is_explicit_and_only_for_110(self):
+        command = launch_command(Path("private"), "qemu", "110")
+        self.assertIn('firmware=110"', command)
+        self.assertNotIn("start=main", command)
+        self.assertIn("110;start=main", launch_command(Path("private"), "qemu", "110", True))
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "130", True)
+
+    def test_low_vectors_requires_direct_entry_and_raw_disks(self):
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "110", low_vectors=True)
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "130", True, True)
+        command = launch_command(Path("private"), "qemu", "110", True, True)
+        self.assertIn("110;start=main;vectors=low", command)
+        self.assertIn("if=sd,format=raw", command)
+
+    def test_prepare_creates_layout_but_not_roms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            messages = prepare(root, create=True, create_disks=True)
+            self.assertTrue(camera_dir(root).is_dir())
+            self.assertTrue((root / "sd.img").is_file())
+            self.assertTrue((root / "cf.img").is_file())
+            self.assertFalse((camera_dir(root) / "ROM0.BIN").exists())
+            self.assertFalse((camera_dir(root) / "ROM1.BIN").exists())
+            self.assertTrue(any("MISSING" in item for item in messages))
+
+
+class MinimalBuildTests(unittest.TestCase):
+    def test_existing_output_still_delegates_dependency_checks(self):
+        # Exercise the real wrapper with a synthetic platform, without ARM tools.
+        wrapper = Path('minimal/Makefile.minimal').resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            platform = root / 'platform/TEST.001'
+            platform.mkdir(parents=True)
+            (platform / 'Makefile').write_text(
+                '.PHONY: build/autoexec.bin\n'
+                'build/autoexec.bin:\n'
+                '\tmkdir -p build\n'
+                '\tcp "$(ML_MINIMAL_SOURCE)" build/autoexec.bin\n'
+                '\tcp build/autoexec.bin build/magiclantern.bin\n'
+                '\techo delegated >> calls\n')
+            minimal = root / 'minimal/check'
+            minimal.mkdir(parents=True)
+            (minimal / 'Makefile').write_text(f'include {wrapper}\n')
+            for content in ['first build', 'changed source', 'changed source']:
+                (minimal / 'minimal.c').write_text(content)
+                result = subprocess.run(['make', 'MODEL=TEST'], cwd=minimal,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((minimal / 'autoexec.bin').read_text(), content)
+                self.assertEqual((minimal / 'magiclantern.bin').read_text(), content)
+            self.assertEqual((platform / 'calls').read_text().splitlines(), ['delegated'] * 3)
+
+
+if __name__ == "__main__":
+    unittest.main()
++data+b'#'+f'{sum(data)%256:02x}'.encode())
+            with self.assertRaises(ValueError):debugger.receive()
+            server.settimeout(.05)
+            with self.assertRaises(socket.timeout):server.recv(1)
+        finally:
+            client.close();server.close()
+
+    def test_receive_maximum_packet_and_next_packet(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            data=b'A'*4096
+            server.sendall(b'(unittest.TestCase):
+    def test_110_needs_canonical_rom1_and_forbids_rom0(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            messages = prepare(root, True, False, "110")
+            self.assertTrue(camera_dir(root, "110").is_dir())
+            self.assertTrue(any("ROM1.BIN" in message for message in messages))
+            self.assertFalse(any("ROM0.BIN" in message for message in messages))
+            (camera_dir(root, "110") / "ROM1.BIN").write_bytes(b"invalid synthetic image")
+            (camera_dir(root, "110") / "ROM0.BIN").write_bytes(b"invalid")
+            errors = validate_roms(root, "110")
+            self.assertTrue(any("canonical" in error for error in errors))
+            self.assertTrue(any("ROM0" in error for error in errors))
+
+    def test_main_entry_is_explicit_and_only_for_110(self):
+        command = launch_command(Path("private"), "qemu", "110")
+        self.assertIn('firmware=110"', command)
+        self.assertNotIn("start=main", command)
+        self.assertIn("110;start=main", launch_command(Path("private"), "qemu", "110", True))
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "130", True)
+
+    def test_low_vectors_requires_direct_entry_and_raw_disks(self):
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "110", low_vectors=True)
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "130", True, True)
+        command = launch_command(Path("private"), "qemu", "110", True, True)
+        self.assertIn("110;start=main;vectors=low", command)
+        self.assertIn("if=sd,format=raw", command)
+
+    def test_prepare_creates_layout_but_not_roms(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            messages = prepare(root, create=True, create_disks=True)
+            self.assertTrue(camera_dir(root).is_dir())
+            self.assertTrue((root / "sd.img").is_file())
+            self.assertTrue((root / "cf.img").is_file())
+            self.assertFalse((camera_dir(root) / "ROM0.BIN").exists())
+            self.assertFalse((camera_dir(root) / "ROM1.BIN").exists())
+            self.assertTrue(any("MISSING" in item for item in messages))
+
+
+class MinimalBuildTests(unittest.TestCase):
+    def test_existing_output_still_delegates_dependency_checks(self):
+        # Exercise the real wrapper with a synthetic platform, without ARM tools.
+        wrapper = Path('minimal/Makefile.minimal').resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            platform = root / 'platform/TEST.001'
+            platform.mkdir(parents=True)
+            (platform / 'Makefile').write_text(
+                '.PHONY: build/autoexec.bin\n'
+                'build/autoexec.bin:\n'
+                '\tmkdir -p build\n'
+                '\tcp "$(ML_MINIMAL_SOURCE)" build/autoexec.bin\n'
+                '\tcp build/autoexec.bin build/magiclantern.bin\n'
+                '\techo delegated >> calls\n')
+            minimal = root / 'minimal/check'
+            minimal.mkdir(parents=True)
+            (minimal / 'Makefile').write_text(f'include {wrapper}\n')
+            for content in ['first build', 'changed source', 'changed source']:
+                (minimal / 'minimal.c').write_text(content)
+                result = subprocess.run(['make', 'MODEL=TEST'], cwd=minimal,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((minimal / 'autoexec.bin').read_text(), content)
+                self.assertEqual((minimal / 'magiclantern.bin').read_text(), content)
+            self.assertEqual((platform / 'calls').read_text().splitlines(), ['delegated'] * 3)
+
+
+if __name__ == "__main__":
+    unittest.main()
++data+b'#'+f'{sum(data)%256:02x}'.encode()+b'$OK#9a')
+            self.assertEqual(debugger.receive(),'A'*4096)
+            self.assertEqual(debugger.receive(),'OK')
+            self.assertEqual(server.recv(2),b'++')
+        finally:
+            client.close();server.close()
+
+    def test_receive_truncated_checksum_is_disconnect(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            server.sendall(b'$OK#9');server.shutdown(socket.SHUT_WR)
+            with self.assertRaises(EOFError):debugger.receive()
+        finally:
+            client.close();server.close()
+
+
 class QemuWorkdirTests(unittest.TestCase):
     def test_110_needs_canonical_rom1_and_forbids_rom0(self):
         with tempfile.TemporaryDirectory() as tmp:
