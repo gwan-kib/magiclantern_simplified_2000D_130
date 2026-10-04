@@ -12,7 +12,7 @@ This port targets the same camera family sold as:
 - Canon EOS 1500D
 - Canon EOS Rebel T7
 
-The initial reverse-engineering baseline is **firmware 1.1.0**, for which a local ROM1 dump is now identified by hash and analyzed. The eventual platform target remains **1.3.0**, which still requires its own canonical ROM and independent validation. Do not promote 1.1.0 values into 1.3.0 code.
+The primary implementation target is **firmware 1.1.0**, matching the user's camera. Keep it on 1.1.0. Its existing private ROM1 is identified by hash and must be rehashed before each new analysis environment uses it. Firmware **1.3.0 remains a separate future port**, requiring its own canonical ROM and independent validation. Missing 1.3.0 evidence does not block independent 1.1.0 work; do not promote 1.1.0 values into 1.3.0 code.
 
 The port is based on the current `dev` branch of `reticulatedpines/magiclantern_simplified`. The Phase 0 synchronization branch was based on upstream commit `1a0600a153476a6af740b3036d3aabc2b3318339`.
 
@@ -20,7 +20,7 @@ The local 1.1.0 analysis now confirms the reported entry and several startup cal
 
 ## Current status
 
-Current active work: **1.1.0 reference-ROM analysis and QEMU preparation, followed by 1.3.0 forward-port validation**
+Current active work: **1.1.0 loader/memory/minimum-interface verification and bounded offline diagnostic execution**. The original 1.3.0 backlog remains separate.
 
 The repository is not yet a functioning 2000D port, but the project has moved beyond the repository-baseline stage.
 
@@ -31,7 +31,9 @@ Completed groundwork:
 - a current-generation minimal-build path, validated on supported camera 1100D.105;
 - Phase 2 ROM-manifest/probe tooling and reverse-engineering documentation.
 
-Still unresolved:
+For the primary 1.1.0 target, [issue #44](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/44) tracks loader/reservation/minimum interfaces and [issue #45](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/45) tracks Canon → ML diagnostic → Canon execution. The newer “Firmware 1.1.0 post-startup observations” identifies a pending Intercom handshake ([issue #41](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/41)), not a PowerMgr deadlock. Full task/task_attr, safe reservation, minimum callable interfaces and a diagnostic channel remain unverified.
+
+Still unresolved for the separate 1.3.0 port:
 
 - a canonical firmware 1.3.0 ROM image and SHA-256;
 - the exact 1.3.0 memory map and cache-hack patch locations;
@@ -100,7 +102,7 @@ make -C platform/1100D.105 FATAL_WARNINGS=y -j2
 
 This reference build checks that the synchronized upstream baseline and toolchain still work. CI also validates the 2000D platform skeleton and builds the modernized minimal/hello-world path on 1100D.105.
 
-The first intended executable 2000D milestone is smaller than the graphical hello-world: a verified LED-only diagnostic using the minimum possible 1.3.0 firmware interface. The richer hello-world follows after task/display dependencies are verified.
+The first intended 1.1.0 executable milestone is the smallest evidence-backed offline diagnostic, without unnecessary display/task/menu dependencies. A physical LED interface is still unverified and must not be assumed. The richer hello-world follows only after its actual dependencies are verified.
 
 ### Important build-safety note
 
@@ -171,7 +173,7 @@ Planned QEMU progression:
 
 ## Physical-camera safety gate
 
-No physical-camera test should occur before the QEMU/minimal milestones and a written test/recovery procedure are complete.
+No physical-camera test should occur before exact-target QEMU/minimal milestones and a validated written test/recovery procedure are complete. The existing 1.3.0 protocol is not a 1.1.0 authorization or procedure; it requires an exact-target counterpart before any future 1.1.0 physical test. This offline session authorizes no camera/card operation, installer FIR, boot flags or persistent changes.
 
 When hardware testing eventually begins:
 

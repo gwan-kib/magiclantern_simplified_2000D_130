@@ -2,13 +2,13 @@
 
 > **Experimental porting repository. Not ready for installation on a physical camera.**
 
-This fork tracks current Magic Lantern development while building support for the **Canon EOS 1500D / 2000D / Rebel T7 on firmware 1.3.0**.
+This fork tracks current Magic Lantern development while building support for the **Canon EOS 1500D / 2000D / Rebel T7 on firmware 1.1.0**.
 
-The public fork this work started from contained early ROM/cache-hack notes, but the camera-specific platform implementation was not present. This repository therefore treats those notes as leads until they are independently verified against the exact 1.3.0 ROM.
+The public fork this work started from contained early ROM/cache-hack notes, but the camera-specific platform implementation was not present. This repository therefore treats those notes as leads until they are independently verified against the exact target ROM. Firmware 1.3.0 remains a separate future port; the user's camera stays on 1.1.0.
 
 ## Port status
 
-Current active work: **firmware 1.1.0 ROM analysis and bounded QEMU execution**.
+Current active work: **firmware 1.1.0 implementation prerequisites and bounded offline execution**.
 Firmware 1.3.0 remains a separate, unverified platform target.
 
 - The user's EOS 2000D / Rebel T7 reports **1.1.0**; the supplied rescue log
@@ -16,11 +16,16 @@ Firmware 1.3.0 remains a separate, unverified platform target.
 - Nine ordered startup stages and the 315,804-byte RAM copy have been measured
   in QEMU. The optional C2 25 39 identity remains **QEMU / Experiment**;
   physical flash identity, full Canon boot and ML execution remain unverified.
-- See the [complete Known Issues audit](docs/2000D-known-issues.md) for current
-  status, evidence, remaining blockers and verification limitations.
+- Read [“Firmware 1.1.0 software continuation”](docs/2000D-110/software-continuation.md)
+  for current software verification and capability blockers; the [Known Issues audit](docs/2000D-known-issues.md)
+  preserves the earlier audit and appended handshake finding.
 
 - Upstream source baseline: `reticulatedpines/magiclantern_simplified:dev`
-- Target firmware: **1.3.0**
+- Primary target firmware: **1.1.0**
+- Separate future platform target: **1.3.0**
+- 1.1.0 loader/reservation/minimum interfaces: **open [prerequisite task](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/44)**
+- 1.1.0 Canon → ML diagnostic → Canon milestone: **open [execution task](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/45)**
+- 1.1.0 initial Intercom handshake: **blocked on [independent state/protocol evidence](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/41)**
 - Phase 0 repository baseline: **complete**
 - `platform/2000D.130/` safe skeleton: **implemented**
 - Current-generation minimal build infrastructure: **working and CI-tested on 1100D.105**
@@ -51,7 +56,7 @@ Start here:
 - [Release hardening plan](docs/2000D-130/release-hardening.md)
 - [GitHub issues](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues)
 
-Do not copy firmware addresses from other cameras. The EOS 1300D can be useful as a late DIGIC 4+ structural reference, but all 2000D constants must be derived from and verified against the 2000D firmware 1.3.0 ROM.
+Do not copy firmware addresses from other cameras. The EOS 1300D can be useful as a late DIGIC 4+ structural reference, but each executable value must be verified against its exact target ROM. Missing 1.3.0 evidence does not block independent 1.1.0 work; 1.1.0 findings do not verify 1.3.0 values.
 
 ---
 

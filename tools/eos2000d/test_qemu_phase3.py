@@ -176,6 +176,23 @@ class DebuggerPacketTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 verify_ram_copy(None, bytes(rom))
 
+    def test_complete_reply_peer_disconnect_is_eof(self):
+        for packet in (b"W00", b"OK"):
+            with self.subTest(packet=packet):
+                client, server = socket.socketpair()
+                try:
+                    debugger = object.__new__(Gdb)
+                    debugger.sock = client
+                    server.sendall(b"$" + packet + b"#" +
+                                   f"{sum(packet) % 256:02x}".encode())
+                    server.close()
+                    with self.assertRaisesRegex(EOFError, "acknowledgement") as raised:
+                        debugger.receive()
+                    self.assertIsInstance(raised.exception.__cause__, BrokenPipeError)
+                finally:
+                    client.close()
+                    server.close()
+
     def test_receives_packet_with_ack_prefix(self):
         client, server = socket.socketpair()
         try:
@@ -216,6 +233,51 @@ class DebuggerPacketTests(unittest.TestCase):
         self.assertEqual(arm_register(packet, 15), 0xFE0C0000)
         with self.assertRaises(ValueError):
             arm_register("00", 15)
+
+
+    def test_receive_enforces_absolute_deadline_during_packet(self):
+        from unittest.mock import patch
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            server.sendall(b'$OK#9a')
+            with patch('tools.eos2000d.qemu_probe.time.monotonic',side_effect=[1,1.5,2,3]):
+                with self.assertRaises(socket.timeout):debugger.receive(deadline=2.5)
+        finally:
+            client.close();server.close()
+
+    def test_receive_rejects_oversized_packet_without_ack(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            data=b'A'*4097
+            server.sendall(b'$'+data+b'#'+f'{sum(data)%256:02x}'.encode())
+            with self.assertRaises(ValueError):debugger.receive()
+            server.settimeout(.05)
+            with self.assertRaises(socket.timeout):server.recv(1)
+        finally:
+            client.close();server.close()
+
+    def test_receive_maximum_packet_and_next_packet(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            data=b'A'*4096
+            server.sendall(b'$'+data+b'#'+f'{sum(data)%256:02x}'.encode()+b'$OK#9a')
+            self.assertEqual(debugger.receive(),'A'*4096)
+            self.assertEqual(debugger.receive(),'OK')
+            self.assertEqual(server.recv(2),b'++')
+        finally:
+            client.close();server.close()
+
+    def test_receive_truncated_checksum_is_disconnect(self):
+        client,server=socket.socketpair()
+        try:
+            debugger=object.__new__(Gdb);debugger.sock=client
+            server.sendall(b'$OK#9');server.shutdown(socket.SHUT_WR)
+            with self.assertRaises(EOFError):debugger.receive()
+        finally:
+            client.close();server.close()
 
 
 class QemuWorkdirTests(unittest.TestCase):

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is an **experimental Magic Lantern port for the Canon EOS 1500D / 2000D / Rebel T7**. Firmware **1.1.0 is now the verified-ROM reverse-engineering baseline**; firmware **1.3.0 remains the eventual platform target and requires its own exact ROM evidence**.
+This repository is an **experimental Magic Lantern port for the Canon EOS 1500D / 2000D / Rebel T7**. Firmware **1.1.0 is the primary implementation target**, matching the user's physical camera. Firmware **1.3.0 remains a separate future port and requires its own exact ROM evidence**.
 
 This file is the operating guide for coding/research agents working in this repository. Read it before making changes.
 
@@ -38,33 +38,40 @@ The project has completed most useful scaffolding that does not require the cano
 - Feature-validation matrix and CI enforcement.
 - Release-hardening / release-manifest preparation.
 
-### Current hard blocker
+### Current target and evidence blockers
 
-The project still needs **one canonical EOS 2000D firmware 1.3.0 raw firmware/ROM image** identified by SHA-256 and tied to a reproducible acquisition/extraction path. The 1.1.0 image is an independently analyzed same-body baseline, not a substitute for 1.3.0 evidence.
+The user's explicit firmware-1.1.0 scope supersedes older guidance that made
+1.3.0 acquisition a prerequisite to every implementation phase. Keep the
+camera on 1.1.0. Missing 1.3.0 evidence blocks only the separate 1.3.0 work;
+preserve that platform, its guards and original issue acceptance criteria.
 
-Until that exists, do not claim that firmware-specific 1.3.0 addresses are verified.
+For 1.1.0, locate and rehash the existing private ROM1 before use. Do not
+request another identical dump without first checking available artifacts.
+The invalid ROM0 must never be loaded or fabricated. Read the newer
+“Firmware 1.1.0 post-startup observations” before interpreting older waits.
 
-### Important open dependency chain
+The current 1.1.0 chain is:
 
 ```text
-verified 1.1.0 reference ROM + canonical 1.3.0 ROM
+canonical 1.1.0 ROM + reproducible private QEMU environment
         ↓
-verify boot/memory/task/stub data
+verified loader, reservation, required task/interfaces and exact identity (#44)
         ↓
-real 2000D.130 minimal build
+offline Canon → ML diagnostic → Canon milestone (#45)
         ↓
-QEMU Canon boot + ML minimal payload
-        ↓
-controlled hardware minimal boot
-        ↓
-core APIs / memory / GUI / display
-        ↓
-restricted ML menu
-        ↓
-feature-by-feature enablement
-        ↓
-release hardening / external testing
+target-specific physical evidence and recovery gates
 ```
+
+KI-019 (independent installed flash identity) and KI-020 / #41 (initial
+Intercom state and response protocol) remain separate evidence boundaries.
+An opt-in C2/25/39 experiment does not close either issue. Static analysis
+and independent tooling work may continue while a runtime dependency blocks
+a different task. The full task/task_attr variant, safe memory reservation
+and minimal diagnostic interface remain unresolved.
+
+The future 1.3.0 chain still needs a canonical 1.3.0 ROM, followed by its own
+boot/memory/task/stub verification, minimal build, Canon/ML execution and
+physical gates. Never transfer 1.1.0 addresses as 1.3.0 proof.
 
 ---
 
@@ -80,6 +87,7 @@ Before changing a subsystem, read the relevant document.
 
 ### Phase 2 — firmware analysis
 
+- `docs/2000D-110/software-continuation.md` — current software status, scope clarification and corrections to older reports.
 - `docs/2000D-110/rom-analysis.md`
 - `docs/2000D-110/rom-manifest.json`
 - `docs/2000D-110/startup-map.md`
@@ -153,13 +161,13 @@ The 200D is a different DIGIC-generation camera.
 
 ## Firmware evidence standard
 
-Every firmware-specific value promoted into executable 2000D.130 code must be backed by evidence from the exact firmware 1.3.0 image.
+Every firmware-specific value promoted into executable code must cite the exact target image: firmware 1.1.0 for a future 2000D.110 path, firmware 1.3.0 for 2000D.130. Keep verified facts, candidates and unresolved assumptions distinct.
 
 The 1.1.0 baseline has its own evidence ledger. Do not transfer its values into 1.3.0 code without finding and validating the corresponding 1.3.0 behavior independently.
 
 For an address or structure decision, record at least:
 
-- canonical 1.3.0 ROM SHA-256;
+- canonical exact-target ROM SHA-256;
 - address / offset;
 - ROM vs RAM callable address when applicable;
 - how it was identified;
@@ -197,9 +205,12 @@ What may be committed:
 
 ## Platform rules
 
-Target directory:
+Existing future-target directory:
 
 `platform/2000D.130/`
+
+A dedicated 2000D.110 executable path depends on issue #44. Do not add copied
+historical constants or speculative platform scaffolding to imply readiness.
 
 ### Keep active values conservative
 
@@ -292,13 +303,18 @@ QEMU builds using `CONFIG_QEMU=y` must never be tested on the physical camera.
 
 ## Physical-camera rules
 
-Do not test a build on hardware until the gates in:
+Do not test a build on hardware until exact-target evidence and recovery gates
+are satisfied. The existing 1.3.0 protocol below remains a future-port record;
+it does not authorize or define a 1.1.0 procedure:
 
 `docs/2000D-130/hardware-test-protocol.md`
 
-are satisfied.
+A 1.1.0 procedure requires a separately validated diagnostic, loader, memory
+reservation, exact non-QEMU binary and recovery evidence after issue #45.
+Do not operate the camera, alter boot flags or persistent state, prepare an
+installer FIR or instruct experimental payload execution during offline work.
 
-At minimum, first hardware execution requires:
+For the separate 1.3.0 protocol, first hardware execution requires:
 
 - exact camera model confirmed;
 - camera firmware exactly 1.3.0;
@@ -325,7 +341,7 @@ Use normal GitHub review flow.
 3. Make the smallest logically complete change.
 4. Update code **and** the documentation/evidence that justifies it in the same PR.
 5. Run/inspect CI.
-6. Merge only after relevant checks are green.
+6. Do not merge without a separate explicit user instruction; green checks alone are insufficient.
 7. Close a GitHub issue only when its actual acceptance criteria are met.
 
 Do not close an issue simply because scaffolding exists.

@@ -1,0 +1,101 @@
+name: Pinned QEMU source build
+
+on:
+  pull_request:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qemu-source-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qemu-source:
+    name: Build pinned ARM emulator without private firmware
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out port tooling
+        uses: actions/checkout@v4
+
+      - name: Check out pinned qemu-eos
+        uses: actions/checkout@v4
+        with:
+          repository: reticulatedpines/qemu-eos
+          ref: 4b667a1d3c08ab7a55835d15ddbd884fa754946d
+          path: work/qemu-source
+
+      - name: Check out pinned dtc
+        uses: actions/checkout@v4
+        with:
+          repository: qemu/dtc
+          ref: 88f18909db731a627456f26d779445f84e449536
+          path: work/dtc-source
+
+      - name: Check out pinned keycodemapdb
+        uses: actions/checkout@v4
+        with:
+          repository: qemu/keycodemapdb
+          ref: 6b3d716e2b6472eb7189d3220552280ef3d832ce
+          path: work/keycodemapdb-source
+
+      - name: Install documented build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            build-essential pkg-config python3 libglib2.0-dev \
+            libpixman-1-dev zlib1g-dev flex bison
+
+      - name: Verify revisions and export build sources
+        run: |
+          test "$(git -C work/qemu-source rev-parse HEAD)" = "4b667a1d3c08ab7a55835d15ddbd884fa754946d"
+          test "$(git -C work/dtc-source rev-parse HEAD)" = "88f18909db731a627456f26d779445f84e449536"
+          test "$(git -C work/keycodemapdb-source rev-parse HEAD)" = "6b3d716e2b6472eb7189d3220552280ef3d832ce"
+          mkdir -p work/qemu-eos/dtc work/qemu-eos/ui/keycodemapdb work/qemu-build
+          git -C work/qemu-source archive HEAD | tar -x -C work/qemu-eos
+          git -C work/dtc-source archive HEAD | tar -x -C work/qemu-eos/dtc
+          git -C work/keycodemapdb-source archive HEAD | tar -x -C work/qemu-eos/ui/keycodemapdb
+          python3 tools/eos2000d/qemu_eos_patch.py work/qemu-eos
+          python3 tools/eos2000d/qemu_eos_patch.py work/qemu-eos --check
+          gcc --version
+          python3 --version
+          make --version
+          pkg-config --modversion glib-2.0 pixman-1 zlib
+
+      - name: Configure and build supported emulator
+        working-directory: work/qemu-build
+        run: |
+          ../qemu-eos/configure --target-list=arm-softmmu --disable-docs \
+            --disable-werror --disable-slirp --disable-capstone --enable-plugins \
+            --disable-gtk --disable-sdl --python=python3 2>&1 | tee configure.log
+          make -j4 2>&1 | tee build.log
+          test -s arm-softmmu/qemu-system-arm
+          arm-softmmu/qemu-system-arm --version
+          arm-softmmu/qemu-system-arm -machine help | grep -F "2000D"
+
+      - name: Check real debugger transport without Canon firmware
+        run: |
+          QEMU_DEBUGGER_TEST_BINARY="$PWD/work/qemu-build/arm-softmmu/qemu-system-arm" \
+            python3 -m unittest tools.eos2000d.test_qemu_debugger_integration -v
+
+      - name: Save public emulator build and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-eos-pinned-arm-source-build
+          path: |
+            work/qemu-build/arm-softmmu/qemu-system-arm
+            work/qemu-build/config-host.mak
+            work/qemu-build/configure.log
+            work/qemu-build/config.log
+            work/qemu-build/build.log
+          if-no-files-found: warn
+          retention-days: 7
