@@ -28,7 +28,9 @@ python3 tools/eos2000d/qemu_workdir.py --help
 ```
 
 The 1.1.0 QEMU assumptions and direct-main experiment are documented in
-`docs/2000D-110/qemu.md`. No actual emulator run has been recorded yet.
+`docs/2000D-110/qemu.md`. Repeated local emulator execution and its flash-identification blocker are now recorded there.
+Use `qemu_probe.py --help` for private bounded debugger reports and
+`qemu_smoke.py --probe-report /private/result.json` for the limited init-task-entry check.
 
 ## Probe candidate addresses locally
 
