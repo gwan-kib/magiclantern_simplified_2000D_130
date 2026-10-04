@@ -27,7 +27,7 @@ OPERATIONS = frozenset(('sample', 'context', 'switch', 'created-tcb', 'create-ca
     'power-mode', 'flag-wait-result', 'debug-call', 'intercom-send', 'intercom-configured'))
 WAIT_OPERATIONS = frozenset(('sleep', 'message-receive', 'flag-wait', 'semaphore-wait', 'semaphore-wait-unbounded'))
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-MMIO = re.compile(r"\[([^\]\s]+)\]\s+at\s+(?:(\S+):)?([0-9A-Fa-f]{8}|0x[0-9A-Fa-f]{8}):([0-9A-Fa-f]{8})\s+\[0x([0-9A-Fa-f]{8})\]\s+(->|<-)\s+0x([0-9A-Fa-f]+)")
+MMIO = re.compile(r"\[([^\]\s]+)\]\s+at\s+(?:(\S+):)?([0-9A-Fa-f]{8}|0x[0-9A-Fa-f]{8}):([0-9A-Fa-f]{8})\s+\[0x([0-9A-Fa-f]{8})\]\s+(->|<-)\s+0x([0-9A-Fa-f]+)(?=\\s|$)")
 
 
 def integer(value, label, maximum=None):
@@ -87,6 +87,11 @@ def parse_events(text):
             if any(address(event[key]) != address(registers[i]) for key, i in (('pc',15),('sp',13),('lr',14))):
                 raise ValueError('register metadata disagrees')
             op = event['operation']
+            if op == 'create-call':
+                name = event.get('name')
+                if name is not None and (not isinstance(name, str) or not name or len(name) > 63
+                                         or not all(32 <= ord(c) < 127 for c in name)):
+                    raise ValueError('invalid creation-call name')
             tasks = [event.get('current')]
             if op == 'created-tcb':
                 created = event.get('created')
@@ -145,7 +150,7 @@ def parse_mmio(text):
         module, task, pc, lr, reg, arrow, value = match.groups()
         records.append(dict(module=module, task=task, pc=address('0x'+pc.removeprefix('0x')),
             lr=address('0x'+lr), address=address('0x'+reg),
-            operation='read' if arrow == '->' else 'write', value=int(value,16)))
+            operation='read' if arrow == '->' else 'write', value=integer(int(value,16), 'MMIO value', 0xFFFFFFFF)))
     return records
 
 
