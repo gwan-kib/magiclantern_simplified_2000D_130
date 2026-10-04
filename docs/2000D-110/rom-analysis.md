@@ -80,3 +80,11 @@ reset state or flash device identity. See [qemu.md](qemu.md).
 No 1.1.0 stubs or platform constants should be enabled based only on historical
 names. Preserve each address as an evidence-qualified candidate until the
 calling convention, semantics, and use are confirmed.
+
+## Flash identification
+
+Static and repeated runtime analysis identify a serial-flash 06/9F/05 path,
+four halfword outputs and three alternative accepted manufacturer/type/capacity
+tuples. No unique installed chip identity follows from those alternatives.
+The measured manufacturer six comes from an unmodeled command/data window,
+not a physical chip ID or status return. See [flashif.md](flashif.md).

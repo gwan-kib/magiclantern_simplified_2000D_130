@@ -94,5 +94,40 @@
     "full_boot_verified": false,
     "physical_bootloader_state_verified": false,
     "flash_device_identity_verified": false
+  },
+  "flashif_analysis": {
+    "rom1_sha256": "7c17f49c5521ffe2fa140371a1bcb6353874b94d5c2669982b86f35e639c1a12",
+    "ram_wrapper": "0x000027C4",
+    "rom_source": "0xFE9EAB0C",
+    "measured_status_return": 0,
+    "measured_manufacturer_output": 6,
+    "accepted_tuples": [
+      [
+        "0xC2",
+        "0x25",
+        "0x39"
+      ],
+      [
+        "0x20",
+        "0xBB",
+        "0x19"
+      ],
+      [
+        "0x01",
+        "0x02",
+        "0x19"
+      ]
+    ],
+    "measured_command_sequence": [
+      "0x06",
+      "0x9F",
+      "0x05"
+    ],
+    "controller_accesses_per_trace": 153,
+    "trace_repeats": 2,
+    "assertion_resolved": false,
+    "physical_flash_identity_verified": false,
+    "emulator_behavior_changed": false,
+    "reference": "flashif.md"
   }
 }

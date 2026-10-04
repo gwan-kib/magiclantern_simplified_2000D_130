@@ -47,3 +47,9 @@ engineering, not automatic publication.
 ```bash
 python3 -m unittest tools.eos2000d.test_rom_manifest
 ```
+
+For canonical firmware-110 flash diagnostics, add `--flashif-trace` to
+`qemu_probe.py --start-main --low-vectors --timeout 15`. This saves private
+`flashif.jsonl` with executed access widths, registers and command descriptors,
+and rejects incomplete FlashIF log coverage. Firmware bytes and raw
+transactions stay outside Git. See `docs/2000D-110/flashif.md`.

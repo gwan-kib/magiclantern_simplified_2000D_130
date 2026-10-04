@@ -84,7 +84,7 @@ instructions, ROM bytes, interrupt masks, or peripheral responses are patched.
 With low vectors, both runs take the same failing path in startup routine
 `0xFE0C1B60`. The call at `0xFE0C1BBC` invokes RAM routine `0x000027C4`
 with ROM bank base `0xF8000000` and stack outputs for flash-identification data.
-A dedicated debugger stop at `0xFE0C1BC4` measured returned manufacturer
+A dedicated debugger stop at `0xFE0C1BC4` measured the caller-loaded manufacturer
 `r0=0x00000006` in two further runs. Checks for manufacturer `0xC2`,
 `0x20`, or the accepted `0x01` variant fail; `0xFE0C1C44` calls the assertion
 routine with `r0=0xFE0C152C` (string `0`), `r1=0xFE0C1DF0` (source filename),
@@ -165,3 +165,14 @@ ROM0 omission are execution-tested emulator settings. RAM size, timer/IRQ IDs,
 MPU parameters, LED/RTC settings and current-task structure assumptions are not
 independently verified physical-camera constants. No ML payload, installer,
 boot flag, firmware update, or physical-camera action was attempted.
+
+## FlashIF follow-up
+
+The complete 06/9F/05 serial-flash transaction is now traced. The ID wrapper
+returns status zero; the caller then loads output manufacturer six. The six
+comes from the earlier 06 command byte written into the unmodeled bank window.
+All three accepted ID bytes are required; no installed physical chip identity
+is proven. The assertion remains unresolved and QEMU behavior is unchanged.
+See [flashif.md](flashif.md) for the exact sequence, register map and evidence.
+Use `--timeout 15 --flashif-trace` for private diagnostics; complete MMIO-log
+coverage and ARM condition checks prevent incomplete or invented accesses.
