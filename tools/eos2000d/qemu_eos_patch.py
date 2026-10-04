@@ -83,6 +83,21 @@ FIRMWARE_110_MAIN_ENTRY = r'''    /* EOS2000D_110_MAIN_ENTRY: explicit experimen
 '''
 
 
+FIRMWARE_110_LOW_VECTORS = r'''    /* EOS2000D_110_LOW_VECTORS: optional bootloader-state experiment. */
+    if (strcmp(eos_state->model->name, MODEL_NAME_2000D) == 0 &&
+        options && atoi(options) == 110 && strstr(options, "start=main") &&
+        strstr(options, "vectors=low"))
+    {
+        uint64_t before = eos_state->cpu0->env.cp15.sctlr_ns;
+        eos_state->cpu0->env.cp15.sctlr_ns &= ~SCTLR_V;
+        fprintf(stderr, "[EOS2000D] low vectors experiment: SCTLR 0x%08" PRIX64
+                " -> 0x%08" PRIX64 " (bootloader state assumed)\n",
+                before, eos_state->cpu0->env.cp15.sctlr_ns);
+    }
+
+'''
+
+
 class PatchError(RuntimeError):
     pass
 
@@ -138,6 +153,13 @@ def patch_texts(model_h: str, model_c: str, eos_c: str) -> tuple[str, str, str]:
         '    if (options)\n    {\n        /* fixme: reinventing the wheel */',
         FIRMWARE_110_MAIN_ENTRY,
         "EOS2000D_110_MAIN_ENTRY",
+    )
+
+    eos_c = _insert_once(
+        eos_c,
+        '    if (options)\n    {\n        /* fixme: reinventing the wheel */',
+        FIRMWARE_110_LOW_VECTORS,
+        "EOS2000D_110_LOW_VECTORS",
     )
 
     return model_h, model_c, eos_c

@@ -1,10 +1,14 @@
 import sys
+import copy
+import socket
 import tempfile
 import unittest
 from pathlib import Path
 
 from tools.eos2000d.qemu_eos_patch import patch_texts
-from tools.eos2000d.qemu_smoke import find_ordered_markers, run_command
+from tools.eos2000d.qemu_smoke import find_ordered_markers, run_command, check_startup_report, STARTUP_110_PCS
+from tools.eos2000d.qemu_probe import Gdb, arm_register
+from tools.eos2000d.qemu_workdir import ROM1_110_SHA256
 from tools.eos2000d.qemu_workdir import camera_dir, prepare, launch_command, validate_roms
 
 
@@ -45,6 +49,10 @@ class QemuPatchTests(unittest.TestCase):
         self.assertIn('firmware_start = 0xFE0C0000', out_eos)
         self.assertIn('env.regs[15] = eos_state->model->firmware_start', out_eos)
 
+        self.assertIn('strstr(options, "vectors=low")', out_eos)
+        self.assertIn('cp15.sctlr_ns &= ~SCTLR_V', out_eos)
+        self.assertIn('bootloader state assumed', out_eos)
+
         # Idempotence.
         second = patch_texts(out_h, out_model, out_eos)
         self.assertEqual(second, (out_h, out_model, out_eos))
@@ -82,6 +90,80 @@ class QemuSmokeTests(unittest.TestCase):
         self.assertIn("canon start", output)
 
 
+class StartupReportTests(unittest.TestCase):
+    def setUp(self):
+        self.report = {
+            "returncode": 0, "rom1_sha256": ROM1_110_SHA256,
+            "ram_copy": {"matches_rom_source": True},
+            "stages": [{"pc": pc} for pc in STARTUP_110_PCS],
+        }
+
+    def test_measured_startup_report_passes(self):
+        self.assertTrue(check_startup_report(self.report)[0])
+
+    def test_missing_or_out_of_order_stop_fails(self):
+        for stages in [self.report["stages"][:-1], list(reversed(self.report["stages"]))]:
+            bad = copy.deepcopy(self.report)
+            bad["stages"] = stages
+            self.assertFalse(check_startup_report(bad)[0])
+
+    def test_hash_copy_and_execution_failures_rejected(self):
+        for field, value in [("rom1_sha256", "wrong"), ("returncode", -9),
+                             ("error", "launch failed"),
+                             ("ram_copy", {"matches_rom_source": False})]:
+            bad = copy.deepcopy(self.report)
+            bad[field] = value
+            self.assertFalse(check_startup_report(bad)[0])
+
+    def test_setup_text_does_not_count_as_execution(self):
+        bad = copy.deepcopy(self.report)
+        bad["stages"] = [{"pc": "setup message " + pc} for pc in STARTUP_110_PCS]
+        self.assertFalse(check_startup_report(bad)[0])
+
+
+class DebuggerPacketTests(unittest.TestCase):
+    def test_receives_packet_with_ack_prefix(self):
+        client, server = socket.socketpair()
+        try:
+            debugger = object.__new__(Gdb)
+            debugger.sock = client
+            server.sendall(b"+$OK#9a")
+            self.assertEqual(debugger.receive(), "OK")
+            self.assertEqual(server.recv(1), b"+")
+        finally:
+            client.close()
+            server.close()
+
+    def test_rejects_checksum_mismatch(self):
+        client, server = socket.socketpair()
+        try:
+            debugger = object.__new__(Gdb)
+            debugger.sock = client
+            server.sendall(b"$OK#00")
+            with self.assertRaises(ValueError):
+                debugger.receive()
+        finally:
+            client.close()
+            server.close()
+
+    def test_disconnect_does_not_spin(self):
+        client, server = socket.socketpair()
+        debugger = object.__new__(Gdb)
+        debugger.sock = client
+        server.close()
+        try:
+            with self.assertRaises(EOFError):
+                debugger.receive()
+        finally:
+            client.close()
+
+    def test_arm_pc_is_little_endian(self):
+        packet = (b"\0" * 60 + (0xFE0C0000).to_bytes(4, "little")).hex()
+        self.assertEqual(arm_register(packet, 15), 0xFE0C0000)
+        with self.assertRaises(ValueError):
+            arm_register("00", 15)
+
+
 class QemuWorkdirTests(unittest.TestCase):
     def test_110_needs_canonical_rom1_and_forbids_rom0(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -103,6 +185,15 @@ class QemuWorkdirTests(unittest.TestCase):
         self.assertIn("110;start=main", launch_command(Path("private"), "qemu", "110", True))
         with self.assertRaises(ValueError):
             launch_command(Path("private"), "qemu", "130", True)
+
+    def test_low_vectors_requires_direct_entry_and_raw_disks(self):
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "110", low_vectors=True)
+        with self.assertRaises(ValueError):
+            launch_command(Path("private"), "qemu", "130", True, True)
+        command = launch_command(Path("private"), "qemu", "110", True, True)
+        self.assertIn("110;start=main;vectors=low", command)
+        self.assertIn("if=sd,format=raw", command)
 
     def test_prepare_creates_layout_but_not_roms(self):
         with tempfile.TemporaryDirectory() as tmp:

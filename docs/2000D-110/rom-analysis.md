@@ -43,6 +43,20 @@ The historical BSS instruction signature at `0xFE0C1B74` is **rejected** for
 1.1.0: the word there is `0xE3A0160D`, not the expected `0xE3A01732`.
 This does not identify an alternate BSS/allocator-end patch.
 
+## Local execution evidence
+
+Repeated qemu-eos direct-entry probes reached the main entry, cstart, both RAM
+call targets and init-task entry. The startup code copies ROM
+`0xFE9E9C48..0xFEA36DE4` into RAM `0x1900..0x4EA9C`; the full copied range
+matched canonical ROM1 byte-for-byte before cstart. RAM routine sources are
+`0xFEA11BE0` for `0x29898` and `0xFE9ED59C` for `0x5254`.
+
+Normal reset never reached main entry. Default direct entry fails when an IRQ
+uses inherited high vectors; the optional low-vector experiment reaches a
+repeatable flash-identification assertion (`Startup/Startup.c`, line 220).
+These are emulator results and assumptions, not independently verified physical
+reset state or flash device identity. See [qemu.md](qemu.md).
+
 ## Unknowns and limits
 
 - The invalid/uniform ROM0 dump suggests an unpopulated or inaccessible bank,

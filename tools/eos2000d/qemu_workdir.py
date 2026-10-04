@@ -65,16 +65,18 @@ def prepare(root: Path, create: bool, create_disks: bool, firmware: str = FIRMWA
 
 
 def launch_command(root: Path, qemu_binary: str, firmware: str = FIRMWARE,
-                   start_main: bool = False) -> str:
+                   start_main: bool = False, low_vectors: bool = False) -> str:
     camera_dir(root, firmware)  # Validate selector even without directory creation.
     if start_main and firmware != "110":
         raise ValueError("direct main-entry experiment is available only for firmware 110")
-    selector = firmware + (";start=main" if start_main else "")
+    if low_vectors and not start_main:
+        raise ValueError("low-vector experiment requires direct main entry")
+    selector = firmware + (";start=main" if start_main else "") + (";vectors=low" if low_vectors else "")
     return (
         f'QEMU_EOS_WORKDIR="{root}" "{qemu_binary}" '
         f'-M "2000D,firmware={selector}" '
         f'-drive file="{root / "cf.img"}",if=ide,format=raw '
-        f'-sd "{root / "sd.img"}" '
+        f'-drive file="{root / "sd.img"}",if=sd,format=raw '
         '-serial stdio -display none -d io,int'
     )
 
@@ -90,6 +92,7 @@ def main() -> int:
     parser.add_argument("--create", action="store_true")
     parser.add_argument("--firmware", choices=["110", "130"], default=FIRMWARE)
     parser.add_argument("--start-main", action="store_true", help="110 only: bypass the absent reset bootloader")
+    parser.add_argument("--low-vectors", action="store_true", help="opt-in 110 direct-entry bootloader-state experiment")
     parser.add_argument("--create-disks", action="store_true")
     parser.add_argument(
         "--qemu-binary",
@@ -101,6 +104,8 @@ def main() -> int:
 
     if args.start_main and args.firmware != "110":
         parser.error("--start-main requires --firmware 110")
+    if args.low_vectors and not args.start_main:
+        parser.error("--low-vectors requires --start-main")
     messages = prepare(args.root, args.create, args.create_disks, args.firmware)
     for message in messages:
         print(message)
@@ -109,7 +114,7 @@ def main() -> int:
 
     if args.command:
         print("\nProvisional launch command:")
-        print(launch_command(args.root, args.qemu_binary, args.firmware, args.start_main))
+        print(launch_command(args.root, args.qemu_binary, args.firmware, args.start_main, args.low_vectors))
 
     if errors:
         for error in errors:

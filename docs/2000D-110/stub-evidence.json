@@ -10,31 +10,36 @@
       "symbol": "firmware_entry",
       "address": "0xFE0C0000",
       "status": "verified",
-      "evidence": "ROM1 offset 0xC0000 contains ARM branch 0xEA000001 to 0xFE0C000C; rescue log reports ROMBASEADDR 0xFE0C0000."
+      "evidence": "ROM1 offset 0xC0000 contains ARM branch 0xEA000001 to 0xFE0C000C; rescue log reports ROMBASEADDR 0xFE0C0000.",
+      "qemu_evidence": "Repeated QEMU hardware-breakpoint stops prove execution at FE0C0000 and FE0C000C in explicit direct-entry mode; normal reset does not reach this entry."
     },
     {
       "symbol": "cstart",
       "address": "0xFE0C3A38",
       "status": "high-confidence",
-      "evidence": "Entry-path branch at 0xFE0C0638; startup prologue; calls verified below."
+      "evidence": "Entry-path branch at 0xFE0C0638; startup prologue; calls verified below.",
+      "qemu_evidence": "Repeated debugger stops at FE0C3A38 after a byte-for-byte verified ROM-to-RAM copy; init entry follows. Physical reset remains unverified."
     },
     {
       "symbol": "bzero32",
       "address": "0x00029898",
       "status": "verified-call-target",
-      "evidence": "BL from 0xFE0C3A6C resolves to 0x00029898; semantic label follows historical evidence."
+      "evidence": "BL from 0xFE0C3A6C resolves to 0x00029898; semantic label follows historical evidence.",
+      "qemu_evidence": "Executed after RAM initialization. ROM source FEA11BE0 copies to RAM 00029898; observed call arguments R0=00000F84, R1=00000078. Full bootstrap range matches canonical ROM1."
     },
     {
       "symbol": "create_init_task",
       "address": "0x00005254",
       "status": "verified-call-target",
-      "evidence": "BL from 0xFE0C3B0C resolves to 0x00005254; semantic label follows historical evidence."
+      "evidence": "BL from 0xFE0C3B0C resolves to 0x00005254; semantic label follows historical evidence.",
+      "qemu_evidence": "Executed after ROM FE9ED59C copies to RAM 00005254. At the call R1=FE129718; scheduler handoff reaches that entry. No task layout inferred."
     },
     {
       "symbol": "init_task",
       "address": "0xFE129718",
       "status": "strong-candidate",
-      "evidence": "Pointer literal at 0xFE0C3B34 targets code with a function prologue; task semantics need confirmation."
+      "evidence": "Pointer literal at 0xFE0C3B34 targets code with a function prologue; task semantics need confirmation.",
+      "qemu_evidence": "Repeated debugger stops at FE129718 with SP=0014B728 and LR=00004200 after the RAM task-creation call. Later Startup.c line 220 flash-identification assertion prevents full boot."
     },
     {
       "symbol": "historical_bss_patch_signature",
@@ -66,5 +71,28 @@
       "status": "unresolved",
       "evidence": "Historical RAM reservation lead only; RAM/BSS/allocator boundaries and overlap remain unknown."
     }
-  ]
+  ],
+  "qemu_runtime": {
+    "source_commit": "4b667a1d3c08ab7a55835d15ddbd884fa754946d",
+    "modes_tested_twice": [
+      "reset",
+      "direct-main",
+      "direct-main-low-vectors-experiment"
+    ],
+    "ram_copy": {
+      "rom_start": "0xFE9E9C48",
+      "rom_end_exclusive": "0xFEA36DE4",
+      "ram_start": "0x00001900",
+      "ram_end_exclusive": "0x0004EA9C",
+      "size": 315804,
+      "sha256": "9c57fd4e542d72f3e96a6c5641e91d85f3edb9f1364dbba1049118c587d179e2",
+      "verified_byte_for_byte": true
+    },
+    "normal_reset": "FFFF0000 filler -> undefined-vector loop FFFF0004; main not reached",
+    "direct_main": "init-task entry reached; first IRQ uses inherited high vector FFFF0018 then undefined-vector loop",
+    "low_vectors_experiment": "SCTLR.V cleared only for explicit direct entry; Startup/Startup.c line 220 assertion at FE0C1C44 -> RAM 00003CBC -> self-loop 00003CDC",
+    "full_boot_verified": false,
+    "physical_bootloader_state_verified": false,
+    "flash_device_identity_verified": false
+  }
 }

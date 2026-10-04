@@ -32,18 +32,45 @@ rescue log is recorded as the main firmware entry, not a chip bank base.
 
 The patched qemu-eos 1.1.0 profile configures `rom0_size = 0`, ROM1 base
 `0xF8000000`, ROM1 size `0x02000000`, and `firmware_start = 0xFE0C0000`.
-Source inspection confirms a zero ROM0 size skips both ROM0 mapping and file
-loading. These are verified **profile settings in the emulator patch**; normal
-reset and direct-entry execution have not run on this host, so they are not
-validated startup outcomes.
+Source inspection and repeated emulator runs confirm that zero ROM0 size skips
+ROM0 mapping/loading. Normal reset still enters filler at `0xFFFF0000`;
+explicit direct entry reaches the main code. These outcomes validate the
+emulator settings, not the physical camera's ROM wiring or reset behavior.
 
-The first startup path contains a ROM-backed BL from `0xFE0C3A6C` to RAM
-address `0x00029898`. The qemu-eos initialization code maps ROM images and
-allocates RAM but contains no model-specific copy that populates this address
-before CPU startup. Consequently a direct-main run may depend on an earlier
-firmware/bootstrap copy. The source region, copy stage, and runtime contents
-remain unverified until an instruction trace reaches that call; do not patch
-the call out.
+## Executed ROM-to-RAM bootstrap
+
+Debugger stops at `0xFE0C0000`, `0xFE0C000C`, `0xFE0C0638`, `0xFE0C3A38`,
+`0xFE0C3A6C`, `0x00029898`, `0xFE0C3B0C`, `0x00005254`, and `0xFE129718`
+were observed in order, twice per direct-entry mode. `0xFE0C3B34` is data and
+was not executed.
+
+The copy loop at `0xFE0C009C..0xFE0C00A8` uses four startup literals at
+`0xFE0C00DC..0xFE0C00E8`:
+
+| Operation | Source / start | Destination / end (exclusive) |
+|---|---|---|
+| Initialized code/data copy | ROM `0xFE9E9C48..0xFEA36DE4` | RAM `0x00001900..0x0004EA9C` |
+| BSS clear | RAM `0x0004EA9C` | RAM `0x00084D24` |
+| Initial low vectors | ROM `0xFE0C0648..0xFE0C0680` | RAM `0x00000000..0x00000038` |
+| IRQ/bootstrap block | ROM `0xFE0C0680..0xFE0C0858` | RAM `0x000004B0..0x00000688` |
+
+The first copy is 315,804 bytes. The debugger checked every byte at `cstart`
+against canonical ROM1; SHA-256
+`9c57fd4e542d72f3e96a6c5641e91d85f3edb9f1364dbba1049118c587d179e2`.
+Under this linear copy, RAM `0x00029898` comes from `0xFEA11BE0` and RAM
+`0x00005254` from `0xFE9ED59C`. Both routines were called after initialization.
+There is another matching bzero sequence earlier in ROM1, but the executed
+copy bounds identify the source above. The clear loop and its upper bound do
+not establish a safe allocator-end patch or relocation region.
+
+Startup sets banked IRQ and SVC SP to `0x1000` at `0xFE0C0608..0xFE0C061C`.
+Low-vector contents are modified subsequently by IRQ setup; see the private
+probe snapshots. Default direct entry retains reset SCTLR high vectors and
+fails at the first timer IRQ. The opt-in low-vector experiment gets past it,
+then startup routine `0xFE0C1B60` fails flash-identification checks and calls the
+assertion routine at `0x00003CBC` from `0xFE0C1C44`. Without the debugger stop,
+the terminal assertion loop is `0x00003CDC`. See [qemu.md](qemu.md) for the
+mode distinction and evidence limits.
 
 ## Task structure
 

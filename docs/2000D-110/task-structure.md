@@ -26,3 +26,10 @@ Before selecting a variant, record ROM1 hash, disassembly context, caller and
 callee behavior, and cross-check at least task creation, lookup/enumeration,
 dispatch, and current-task access. Then add compile-time size/offset checks
 where the project supports them.
+
+## Emulator observation
+
+Repeated direct-entry debugger probes reached RAM `0x5254`, then Canon entry
+`0xFE129718` with SP `0x0014B728` and LR `0x00004200`. This demonstrates task
+creation/scheduler handoff through initialized RAM code in the emulator. It
+does not prove any of the field offsets above; no structure variant is chosen.
