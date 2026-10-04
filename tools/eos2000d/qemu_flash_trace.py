@@ -16,7 +16,8 @@ MMIO_PCS = frozenset(
      0x1D38C, 0x1D394, 0x1D39C])
 BANK_PCS = frozenset([0x1D554, 0x1D58C, 0x1D4E4])
 CONTEXT_PCS = frozenset([0x27C4, 0x2828, 0xB444, 0x1D3A8,
-                         0xFE0C1BC0, 0xFE0C1BC4])
+                         0xFE0C1BC0, 0xFE0C1BC4, 0x2938, 0x2B0C, 0x2CE4,
+                         0x2950, 0x29DC, 0x29E4, 0x38FC])
 TRACE_PCS = MMIO_PCS | BANK_PCS | CONTEXT_PCS
 
 
@@ -77,7 +78,14 @@ def capture(debugger, packet: str, arm_register, cpsr: int) -> dict:
             event["value"] = registers[event["register"]] & ((1 << event["width"]) - 1)
     else:
         event["operation"] = "context"
-        if pc == 0x1D3A8:
+        if pc == 0x38FC:
+            event["task_name_bytes"] = debugger.memory(registers[0], 64).hex()
+            event["fifth_argument"] = debugger.memory(registers[13], 4).hex()
+        elif pc in (0x29DC, 0x29E4):
+            event["geometry_table"] = b"".join(debugger.memory(registers[6] + offset, min(1024, 0x11E8 - offset))
+                                                for offset in range(0, 0x11E8, 1024)).hex()
+            event["driver_selection"] = debugger.memory(0x39DF0, 32).hex()
+        elif pc == 0x1D3A8:
             event["descriptor"] = debugger.memory(registers[0], 28).hex()
         elif pc == 0x27C4:
             event["fifth_argument"] = debugger.memory(registers[13], 4).hex()
