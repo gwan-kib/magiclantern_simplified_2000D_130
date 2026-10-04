@@ -32,7 +32,9 @@ PLATFORM_DIR := $(TOP_DIR)/platform/$(MODEL_DIR)
 MINIMAL_SOURCE := $(abspath minimal.c)
 ML_MINIMAL_EXTRA_OBJS ?= $(ML_SRC_EXTRA_OBJS)
 
-.PHONY: all clean
+# Always delegate dependency checking to the platform makefile. The copied
+# output has no local prerequisites and must not suppress the recursive make.
+.PHONY: all clean autoexec.bin
 
 all: autoexec.bin
 

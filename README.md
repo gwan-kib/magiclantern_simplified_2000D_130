@@ -8,7 +8,16 @@ The public fork this work started from contained early ROM/cache-hack notes, but
 
 ## Port status
 
-Current active work: **Phase 2 reverse engineering + Phase 3 QEMU preparation**
+Current active work: **firmware 1.1.0 ROM analysis and bounded QEMU execution**.
+Firmware 1.3.0 remains a separate, unverified platform target.
+
+- The user's EOS 2000D / Rebel T7 reports **1.1.0**; the supplied rescue log
+  records model ID `0x432`, and ROM1 matches the committed integrity manifest.
+- Nine ordered startup stages and the 315,804-byte RAM copy have been measured
+  in QEMU. The optional C2 25 39 identity remains **QEMU / Experiment**;
+  physical flash identity, full Canon boot and ML execution remain unverified.
+- See the [complete Known Issues audit](docs/2000D-known-issues.md) for current
+  status, evidence, remaining blockers and verification limitations.
 
 - Upstream source baseline: `reticulatedpines/magiclantern_simplified:dev`
 - Target firmware: **1.3.0**

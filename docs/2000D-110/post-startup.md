@@ -18,7 +18,9 @@ repository patcher. Canonical ROM1 is 33,554,432 bytes, SHA-256
 `7c17f49c5521ffe2fa140371a1bcb6353874b94d5c2669982b86f35e639c1a12`.
 The 315,804-byte RAM bootstrap again matches the ROM byte for byte, SHA-256
 `9c57fd4e542d72f3e96a6c5641e91d85f3edb9f1364dbba1049118c587d179e2`.
-ROM0 was not loaded or fabricated.
+ROM0 was not loaded or fabricated. PR #40 subsequently merged into `dev`
+(`db4a4b46cc6d595d49fdf83b1cb6fa605e77b80f`); its RAM-read checks, smoke
+validation and minimal-rebuild fixes are preserved in this branch.
 
 The unchanged probe reproduced all nine established startup PCs plus
 `29FC`, `FE0C1DD0`, Startup, TaskMain, manager, PowerMgr and HotPlug in
@@ -247,7 +249,9 @@ python3 -m unittest discover -s tools/eos2000d -t .
 creation identities, switch stores, entry PCs, IRQ reasons and assertions.
 Its output is private until reviewed. Public tests use generated synthetic
 TaskA records, not firmware excerpts or captured traces. The existing 56
-tests are preserved; the expanded suite has 69 tests. CI also exercises the
+tests are preserved; the initial expanded suite had 69 tests. After integrating
+concurrently merged PR #40, all 75 tests pass, including its six additional
+regressions. Existing captures pass its strengthened full-copy checker. CI exercises the
 new tests and the reference-camera build/safety gates.
 
 This observer, parser, tests and analysis were authored by Codex under the
