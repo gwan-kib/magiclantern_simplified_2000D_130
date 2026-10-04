@@ -38,8 +38,12 @@ class QemuPatchTests(unittest.TestCase):
         )
         self.assertIn('atoi(eos2000d_options) == 110', out_eos)
         self.assertLess(out_eos.index('rom0_size = 0'), out_eos.index('    eos_init_cpu();'))
+        self.assertIn('firmware_version = 110', out_eos)
+        self.assertIn('rom1_addr = 0xF8000000', out_eos)
+        self.assertIn('rom1_size = 0x02000000', out_eos)
         self.assertIn('strstr(options, "start=main")', out_eos)
         self.assertIn('firmware_start = 0xFE0C0000', out_eos)
+        self.assertIn('env.regs[15] = eos_state->model->firmware_start', out_eos)
 
         # Idempotence.
         second = patch_texts(out_h, out_model, out_eos)

@@ -282,6 +282,8 @@ for the provisional 2000D model.
 
 The QEMU model contains provisional values derived from the 1300D model and historical 2000D.110 evidence. Those values are **emulator bring-up assumptions only**.
 
+For firmware 1.1.0, use the ROM1-only profile: `firmware=110` sets `rom0_size=0`, ROM1 at `0xF8000000` with size `0x02000000`, and main entry `0xFE0C0000`. Keep ROM0 out of the workdir. `start=main` is an explicitly labeled reset-bypass experiment, never evidence that the camera's reset path works. Record execution traces before adding smoke markers or changing model parameters.
+
 Do not copy QEMU-only assumptions into physical-camera platform files without independent firmware evidence.
 
 QEMU builds using `CONFIG_QEMU=y` must never be tested on the physical camera.
