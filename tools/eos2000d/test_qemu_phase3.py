@@ -176,6 +176,23 @@ class DebuggerPacketTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 verify_ram_copy(None, bytes(rom))
 
+    def test_complete_reply_peer_disconnect_is_eof(self):
+        for packet in (b"W00", b"OK"):
+            with self.subTest(packet=packet):
+                client, server = socket.socketpair()
+                try:
+                    debugger = object.__new__(Gdb)
+                    debugger.sock = client
+                    server.sendall(b"$" + packet + b"#" +
+                                   f"{sum(packet) % 256:02x}".encode())
+                    server.close()
+                    with self.assertRaisesRegex(EOFError, "acknowledgement") as raised:
+                        debugger.receive()
+                    self.assertIsInstance(raised.exception.__cause__, BrokenPipeError)
+                finally:
+                    client.close()
+                    server.close()
+
     def test_receives_packet_with_ack_prefix(self):
         client, server = socket.socketpair()
         try:
