@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import socket
 import struct
@@ -18,9 +19,11 @@ import tempfile
 import time
 
 try:
+    from . import qemu_flash_trace
     from .qemu_smoke import STARTUP_110_PCS
     from .qemu_workdir import validate_roms
 except ImportError:
+    import qemu_flash_trace
     from qemu_smoke import STARTUP_110_PCS
     from qemu_workdir import validate_roms
 
@@ -170,6 +173,8 @@ def probe(args, repeat: int) -> dict:
                 debugger.command("?")
                 result["initial_registers"] = monitor.registers()
                 addresses = set(int(pc, 16) for pc in STARTUP_110_PCS) | set(args.stop_at)
+                if args.flashif_trace:
+                    addresses.update(qemu_flash_trace.TRACE_PCS)
                 addresses.add(0xFE0C3B34)  # Startup pointer literal, not an expected instruction.
                 for address in addresses:
                     if debugger.command(f"Z1,{address:x},4") != "OK":
@@ -187,8 +192,16 @@ def probe(args, repeat: int) -> dict:
                     pc = arm_register(packet, 15)
                     if not stop.startswith(("S05", "T05")):
                         raise RuntimeError(f"Unexpected debugger stop: {stop}")
-                    result["stages"].append({"pc": f"0x{pc:08X}", "stop": stop,
-                                             "registers": monitor.registers()})
+                    trace_event = None
+                    if args.flashif_trace and pc in qemu_flash_trace.TRACE_PCS:
+                        psr = re.search(r"PSR=([0-9a-fA-F]+)", monitor.registers())
+                        if not psr:
+                            raise RuntimeError("Cannot read ARM condition flags")
+                        trace_event = qemu_flash_trace.capture(debugger, packet, arm_register,
+                                                              int(psr.group(1), 16))
+                    if not args.flashif_trace or pc not in qemu_flash_trace.TRACE_PCS or pc in [int(p, 16) for p in STARTUP_110_PCS]:
+                        result["stages"].append({"pc": f"0x{pc:08X}", "stop": stop,
+                                                 "registers": monitor.registers()})
                     if pc == 0xFE0C3A38:
                         result["ram_copy"] = verify_ram_copy(debugger, rom)
                         result["vectors_at_cstart"] = debugger.memory(0, 0x38).hex()
@@ -200,6 +213,22 @@ def probe(args, repeat: int) -> dict:
                     if pc not in addresses:
                         raise RuntimeError(f"Unexpected breakpoint PC: {pc:#x}")
                     debugger.command(f"z1,{pc:x},4")
+                    if trace_event is not None:
+                        stepped = debugger.command("s")
+                        if not stepped.startswith(("S05", "T05")):
+                            raise RuntimeError(f"Unexpected single-step stop: {stepped}")
+                        after = debugger.command("g")
+                        after_pc = arm_register(after, 15)
+                        if after_pc != (pc + 4) & 0xFFFFFFFF:
+                            raise RuntimeError(f"Trace step interrupted at {after_pc:#x}")
+                        if trace_event["operation"] == "read":
+                            trace_event["value"] = arm_register(after, trace_event["register"])
+                        trace_event["step"] = result.get("flashif_events", 0) + 1
+                        result["flashif_events"] = trace_event["step"]
+                        with (directory / "flashif.jsonl").open("a") as stream:
+                            stream.write(json.dumps(trace_event) + "\n")
+                        if debugger.command(f"Z1,{pc:x},4") != "OK":
+                            raise RuntimeError("Cannot restore trace breakpoint")
                     if time.monotonic() >= deadline:
                         result["bounded_stop"] = True
                         break
@@ -219,6 +248,13 @@ def probe(args, repeat: int) -> dict:
                     debugger.sock.close()
                 if monitor:
                     monitor.close()
+    if args.flashif_trace and not result.get("error"):
+        try:
+            events = [json.loads(line) for line in (directory / "flashif.jsonl").read_text().splitlines()]
+            result["flashif_mmio_coverage"] = qemu_flash_trace.check_mmio_coverage(
+                events, (directory / "output.log").read_text(errors="replace"))
+        except (OSError, ValueError) as error:
+            result["error"] = str(error)
     (directory / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps({"result": str(directory / "result.json"),
                       "stages": [stage["pc"] for stage in result["stages"]],
@@ -232,11 +268,15 @@ def main():
     parser.add_argument("--binary", required=True, type=Path)
     parser.add_argument("--log-dir", required=True, type=Path, help="private results directory outside Git")
     parser.add_argument("--start-main", action="store_true")
+    parser.add_argument("--flashif-trace", action="store_true",
+                        help="private register/width/command trace for the canonical flash path")
     parser.add_argument("--low-vectors", action="store_true")
     parser.add_argument("--repeat", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=3)
     parser.add_argument("--stop-at", action="append", type=lambda value: int(value, 0), default=[])
     args = parser.parse_args()
+    if args.flashif_trace and not (args.start_main and args.low_vectors):
+        parser.error("--flashif-trace requires --start-main and --low-vectors")
     if args.low_vectors and not args.start_main:
         parser.error("--low-vectors requires --start-main")
     if args.repeat < 1 or args.timeout <= 0:

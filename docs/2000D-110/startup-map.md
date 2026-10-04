@@ -78,3 +78,11 @@ No `task` or `task_attr` variant is selected. The entry path calls the
 historical task-creation routine, but this alone does not reveal the structure
 layout. Required field offsets and scheduling/current-task evidence remain
 unresolved; see [task-structure.md](task-structure.md).
+
+## Flash-ID caller correction
+
+RAM `27C4` maps to ROM `FE9EAB0C` and returns a status, measured as zero.
+The manufacturer output at caller SP+20 is loaded into R0 at `FE0C1BC0`;
+R0=6 at `FE0C1BC4` therefore is not the routine's status return. Device/type
+and capacity at SP+16/+12 also must match an accepted tuple. See
+[flashif.md](flashif.md); no new startup stage beyond the assertion is verified.
