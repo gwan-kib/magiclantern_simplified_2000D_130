@@ -27,7 +27,7 @@ OPERATIONS = frozenset(('sample', 'context', 'switch', 'created-tcb', 'create-ca
     'power-mode', 'flag-wait-result', 'debug-call', 'intercom-send', 'intercom-configured'))
 WAIT_OPERATIONS = frozenset(('sleep', 'message-receive', 'flag-wait', 'semaphore-wait', 'semaphore-wait-unbounded'))
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
-MMIO = re.compile(r"\[([^\]\s]+)\]\s+at\s+(?:(\S+):)?([0-9A-Fa-f]{8}|0x[0-9A-Fa-f]{8}):([0-9A-Fa-f]{8})\s+\[0x([0-9A-Fa-f]{8})\]\s+(->|<-)\s+0x([0-9A-Fa-f]+)(?=\\s|$)")
+MMIO = re.compile(r"\[([^\]\s]+)\]\s+at\s+(?:(\S+):)?([0-9A-Fa-f]{8}|0x[0-9A-Fa-f]{8}):([0-9A-Fa-f]{8})\s+\[0x([0-9A-Fa-f]{8})\]\s+(->|<-)\s+0x([0-9A-Fa-f]+)(?=\s|$)")
 
 
 def integer(value, label, maximum=None):
