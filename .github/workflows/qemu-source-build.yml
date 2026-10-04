@@ -81,6 +81,11 @@ jobs:
           arm-softmmu/qemu-system-arm --version
           arm-softmmu/qemu-system-arm -machine help | grep -F "2000D"
 
+      - name: Check real debugger transport without Canon firmware
+        run: |
+          QEMU_DEBUGGER_TEST_BINARY="$PWD/work/qemu-build/arm-softmmu/qemu-system-arm" \
+            python3 -m unittest tools.eos2000d.test_qemu_debugger_integration -v
+
       - name: Save public emulator build and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
