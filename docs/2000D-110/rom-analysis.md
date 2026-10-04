@@ -88,3 +88,13 @@ four halfword outputs and three alternative accepted manufacturer/type/capacity
 tuples. No unique installed chip identity follows from those alternatives.
 The measured manufacturer six comes from an unmodeled command/data window,
 not a physical chip ID or status return. See [flashif.md](flashif.md).
+
+## Experimental C2 25 39 hypothesis
+
+The opt-in experiment supplies a hypothetical ID; physical identity remains
+unresolved. **Static** initializer 2938 builds a contiguous 32 MiB erase map
+using 4 KiB and 64 KiB ranges. **QEMU + Experiment** confirms that initializer,
+the map registration, repeated 06/9F/05 followed by E9, and later task entries.
+The repeated FE2BA330 stop is the PowerMgr wait. No canonical bytes change,
+ROM0 is unused, and no values are promoted into firmware-130 constants.
+See [flashif.md](flashif.md) for protocol comparisons and evidence limits.
