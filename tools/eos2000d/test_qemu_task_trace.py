@@ -1,6 +1,5 @@
 """Synthetic public fixtures: no Canon ROM, disassembly, or captured memory."""
 import json
-import copy
 import tempfile
 import subprocess
 import sys
@@ -191,6 +190,23 @@ class ParserTests(unittest.TestCase):
             event.update(old=event['current'],new=value,committed_pointer='0x00002000')
             with self.subTest(value=value),self.assertRaisesRegex(ValueError,'observer line 2'):
                 parse_events(lines([created_event(),event]))
+
+
+    def test_create_call_name_rejects_unhashable_and_invalid_values(self):
+        for name in [[], {}, 7, '', 'X'*64, 'bad\x01']:
+            event=synthetic_event('create-call');event['name']=name
+            with self.subTest(name=name),self.assertRaisesRegex(ValueError,'observer line 1'):
+                parse_events(lines([event]))
+        for name in [None, 'TaskA', 'X'*63]:
+            event=synthetic_event('create-call');event['name']=name
+            self.assertEqual(summarize(parse_events(lines([event])))['events'],1)
+
+    def test_mmio_value_is_complete_and_32_bit(self):
+        prefix='[MPU] at TaskA:00001000:00002000 [0xC0000004] <- '
+        for value in ['0x1G', '0x100000000', '0x']:
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                parse_mmio(prefix+value)
+        self.assertEqual(parse_mmio(prefix+'0xFFFFFFFF (synthetic)')[0]['value'],0xFFFFFFFF)
 
 
 class ReportBoundaryTests(unittest.TestCase):
