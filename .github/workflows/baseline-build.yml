@@ -48,7 +48,7 @@ jobs:
         run: python3 -m unittest tools.eos2000d.test_rom_manifest
 
       - name: Test EOS 2000D QEMU scaffolding
-        run: python3 -m unittest tools.eos2000d.test_qemu_phase3 tools.eos2000d.test_qemu_flash_trace
+        run: python3 -m unittest tools.eos2000d.test_qemu_phase3 tools.eos2000d.test_qemu_flash_trace tools.eos2000d.test_flashif_model
 
       - name: Test EOS 2000D later-phase preparation tooling
         run: python3 -m unittest tools.eos2000d.test_phase4_7_prep
@@ -71,6 +71,7 @@ jobs:
           curl --fail --silent --show-error --location "$base/model_list.h" -o /tmp/qemu-eos/hw/eos/model_list.h
           curl --fail --silent --show-error --location "$base/model_list.c" -o /tmp/qemu-eos/hw/eos/model_list.c
           curl --fail --silent --show-error --location "$base/eos.c" -o /tmp/qemu-eos/hw/eos/eos.c
+          curl --fail --silent --show-error --location "$base/eos.h" -o /tmp/qemu-eos/hw/eos/eos.h
           python3 tools/eos2000d/qemu_eos_patch.py /tmp/qemu-eos
           grep -q 'MODEL_NAME_2000D "2000D"' /tmp/qemu-eos/hw/eos/model_list.h
           grep -q 'firmware_version       = 130' /tmp/qemu-eos/hw/eos/model_list.c
