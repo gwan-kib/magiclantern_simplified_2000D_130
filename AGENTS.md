@@ -87,6 +87,7 @@ Before changing a subsystem, read the relevant document.
 
 ### Phase 2 — firmware analysis
 
+- `docs/2000D-110/software-continuation.md` — current software status, scope clarification and corrections to older reports.
 - `docs/2000D-110/rom-analysis.md`
 - `docs/2000D-110/rom-manifest.json`
 - `docs/2000D-110/startup-map.md`
