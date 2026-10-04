@@ -117,9 +117,101 @@ No warning was suppressed.
 
 Source validation is pinned to qemu-eos
 `4b667a1d3c08ab7a55835d15ddbd884fa754946d` instead of a moving branch.
-The separate source-build job uses the two documented bundled revisions,
-native archive exports and the existing patcher, and records configure/build
-diagnostics. Its success would prove source compilation, not Canon execution.
+The separate public source build passed at port revision
+`7b0e768336d69ad2b85f23f8bccf7b7ea6c5f30f` in
+[run 37238691106](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37238691106).
+Its [firmware-free artifact](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37238691106/artifacts/11316677554)
+has archive SHA-256
+`4b44b4c8ed6da293dad86b67bee7e70515a42e2d3d3c10431cf4981d8b5892b1`
+and seven-day retention. This archive hash describes that build output, not
+a reproducible binary hash or any Canon firmware.
+
+Exact inputs: qemu-eos `4b667a1d3c08ab7a55835d15ddbd884fa754946d`,
+dtc `88f18909db731a627456f26d779445f84e449536` and keycodemapdb
+`6b3d716e2b6472eb7189d3220552280ef3d832ce`. The existing port patcher
+was applied and checked again. Native archive exports avoid fetching
+irrelevant bundled dependencies. Ubuntu 22.04 uses GCC 11.4.0, Python 3.10.12,
+GNU Make 4.3, GLib 2.72.4, pixman 0.40.0 and zlib 1.2.11.
+
+The recorded configure command is:
+
+```sh
+../qemu-eos/configure --target-list=arm-softmmu --disable-docs \
+  --disable-werror --disable-slirp --disable-capstone --enable-plugins \
+  --disable-gtk --disable-sdl --python=python3
+make -j4
+arm-softmmu/qemu-system-arm --version
+arm-softmmu/qemu-system-arm -machine help
+```
+
+The version is 4.2.1 and the 2000D machine is registered as provisional.
+Compilation reports array-bound warnings in the pinned upstream
+`block/vpc.c`, `block/sheepdog.c` and `net/eth.c`. The port patcher
+changes only EOS model/device files, leaving those warning-producing sources
+unchanged. They remain visible; compilation does not establish their runtime
+correctness. Action-runtime deprecation warnings also remain. The source build
+proves emulator compilation and machine registration, not Canon execution.
+
+## Real emulator debugger checks and shutdown correction
+
+A generic ARM Versatile/PB machine stays stopped under `-S`; no Canon
+machine, firmware, raw capture or guest payload is used. The integration suite
+runs the actual pinned emulator and existing debugger client, checking query
+and register replies, unsupported commands, repeated reads from zero through
+2048 bytes, rejection of a 2049-byte read, recovery after an idle receive
+deadline, reconnect and peer shutdown.
+
+The first integration run,
+[37239136301](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37239136301),
+passed three cases and exposed a shutdown acknowledgement failure in the
+fourth. The pinned emulator's debugger cleanup sends an exit packet before
+closing. Reading that complete packet and then acknowledging it can raise
+`BrokenPipeError`. This is a peer disconnect, not a checksum failure or
+successful guest milestone.
+
+A synthetic regression for both exit and ordinary complete packets then
+failed with two subtest errors in
+[37239526437](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37239526437).
+The receiver now raises a clear `EOFError` when the acknowledgement encounters
+that broken pipe, retaining the original exception as its cause. It neither
+swallows the error nor interprets emulator exit as success.
+
+The fixed baseline passed
+[37239592547](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37239592547):
+**88 synthetic tests** (4 ROM-tooling, 76 QEMU/observer/model, 8 later-phase),
+zero failures/skips, with all reference/safety checks preserved.
+The real emulator suite passed all **four integration tests**, zero
+failures/skips, in
+[37239592516](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/actions/runs/37239592516).
+These 92 tests do not include a fresh Canon firmware run, archived-evidence
+replay or physical validation.
+
+The source-only integration launch is recorded in the suite:
+
+```sh
+qemu-system-arm -M versatilepb -m 16M -S -nodefaults \
+  -display none -monitor none -serial none \
+  -qmp unix:PRIVATE_TEMP/qmp.sock,server,nowait \
+  -gdb unix:PRIVATE_TEMP/gdb.sock,server,nowait
+```
+
+No substitute Canon ROM is fabricated. Final PR-head CI remains authoritative.
+
+## Canon runtime comparison boundary
+
+| Mode | Latest committed observation | Fresh result in this chat |
+|---|---|---|
+| Normal reset | ROM1-only reset reaches erased/filler startup failure; invalid ROM0 is excluded | Not run: local private artifact/runtime capability unavailable |
+| Direct main | Ordered bootstrap reaches initialization, then high-vector IRQ failure | Not run for the same reason |
+| Direct main with low vectors | Ordered bootstrap advances to default flash-identification assertion | Not run for the same reason |
+| Opt-in C2/25/39 with low vectors | Prior two bounded 120-second runs observe all ten tasks entering and active timers, with initial Intercom completion pending | Not run for the same reason |
+
+The nine ordered startup stages and complete 315,804-byte RAM copy belong to
+the earlier qualified evidence described in “EOS 2000D firmware 1.1.0 QEMU
+execution” and later reports. The stronger validators remain active, but
+their synthetic tests cannot substitute for rehashing actual ROM bytes or
+replaying/reproducing those private records. No loader/minimal-ML/Canon
+continuation milestone is established.
 
 ## KI-020: source review and missing discriminator
 
@@ -153,6 +245,25 @@ reply to manufacture advancement.
 KI-020 remains **🔴 Blocked**. PowerMgr/HotPlug waits remain intact. KI-019
 also remains **🔴 Blocked**: an accepted identity hypothesis is not installed
 chip identification. No physical identity or full boot is claimed.
+
+## KI-019: independent manufacturer evidence
+
+A scoped search did not establish an installed T7 chip. It did locate
+independent primary-source documentation for the identity hypothesis:
+Macronix [“MX25U25635F”, “Table 6. ID Definitions”, revision 1.5,
+August 4, 2016](https://www.mxic.com.tw/Lists/Datasheet/Attachments/8663/MX25U25635F%2C%201.8V%2C%20256Mb%2C%20v1.5.pdf#page=28)
+and [“MX25U25671G”, “Table 6. ID Definitions”, revision 1.3,
+June 30, 2025](https://www.mxic.com.tw/Lists/Datasheet/Attachments/9155/MX25U25671G%2C%201.8V%2C%20256Mb%2C%20v1.3.pdf#page=31)
+both list C2/25/39 for RDID. Search-index publication timestamps differ from
+the revision dates inside the datasheets; the internal dates are recorded
+here.
+
+Those are manufacturer facts about parts, not camera observations. Their
+shared tuple shows that even an independently observed tuple would not select
+a unique part variant. Neither a matching tuple nor ROM capacity establishes
+installation, board controller behavior or reset state. No emulator behavior
+was extended from these datasheets; the existing hypothesis remains disabled
+by default and KI-019 remains blocked.
 
 ## KI-012: optional CF backend inspection
 
@@ -196,6 +307,30 @@ makes the current KI count 20: four completed, one ready/fixable and fifteen
 blocked. These counts describe that tracker, not port completion. No broad
 issue is closed by this software work.
 
+### Original KI acceptance criteria preserved
+
+The original 1.3.0 requirements remain independent of the new #44/#45 path.
+
+| KI | Status | Exact remaining blocker under its existing criteria |
+|---|---|---|
+| KI-001, KI-005, KI-007, KI-018 | 🟢 Completed | Historical identity, build infrastructure, provenance policy and prior environment resolution; no new hardware readiness is implied |
+| KI-002 | 🔴 Blocked | Canonical private 1.3.0 raw image with acquisition record/hash |
+| KI-003 | 🔴 Blocked | Independent 1.3.0 startup, relocation and allocator boundaries |
+| KI-004 | 🔴 Blocked | Exact 1.3.0 task/task_attr fields and calling paths |
+| KI-006 | 🔴 Blocked | Exact-target loader, diagnostic interface and required dependency symbols |
+| KI-008 | 🔴 Blocked | Reproducible official 1.3.0 source artifact |
+| KI-009 | 🔴 Blocked | Exact updater input and verified extraction/dump provenance |
+| KI-010 | 🔴 Blocked | Target model memory, interrupt, timer and peripheral evidence |
+| KI-011 | 🔴 Blocked | Verified 1.3.0 bank/alias evidence; the separate 1.1.0 reset problem needs valid bootloader evidence |
+| KI-012 | 🟡 Ready / Fixable | Optional-backend correction with SD-only and supported-CF initialization/DMA/IRQ/reset/cleanup comparisons |
+| KI-013 | 🔴 Blocked | Original 2000D.130 Canon/ML/Canon loader execution; narrower 1.1.0 bootstrap checks do not close it |
+| KI-014 | 🔴 Blocked | Verified diagnostic, exact non-QEMU binary, measured abort bound and physical rescue/boot evidence |
+| KI-015 | 🔴 Blocked | Target APIs/calling conventions, memory and focused runtime evidence, repeated hardware stability |
+| KI-016 | 🔴 Blocked | Exact events/pointers, non-consuming input and overlay validation across camera states |
+| KI-017 | 🔴 Blocked | Restricted stable core, feature-specific evidence and identity/recovery/release gates |
+| KI-019 | 🔴 Blocked | Independent installed chip and controller/window/reset identification |
+| KI-020 | 🔴 Blocked | Independent initial request state, correct T7 protocol, transfer/callback and Startup advancement in two bounded runs |
+
 ## Documentation publication boundary
 
 Automatic approval review rejected full replacements of the existing
@@ -204,7 +339,13 @@ their complete bodies include detailed firmware/trace content. They are left
 intact. This separate public-safe record supplies the merged-status correction,
 PR #40 clarification and continuation evidence without republishing those
 detailed bodies. Direct edits to them require that approval blocker to be
-resolved. External Known Issues document tabs have not been modified.
+resolved. The connected “Canon EOS 2000D / Rebel T7 Magic Lantern Port – Implementation
+Plan” was read in its native structure: “Implementation Plan” and “Known
+Issues” are separate tabs. The latter includes KI-020 and a stale statement
+that PR #42 is unmerged. This session preserved both tabs and made no
+external-document edits. Its historical 1.3.0 scope does not override the
+user's current 1.1.0 instruction. Connected Drive searches located that
+document, but did not locate an independently usable ROM artifact.
 
 ## Continuation
 
