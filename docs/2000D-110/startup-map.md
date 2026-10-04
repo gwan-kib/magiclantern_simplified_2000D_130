@@ -30,6 +30,21 @@ why the main entry is offset `0xC0000` into the final alias. It does not
 independently prove physical ROM banking on the camera. `ROMBASEADDR` in the
 rescue log is recorded as the main firmware entry, not a chip bank base.
 
+The patched qemu-eos 1.1.0 profile configures `rom0_size = 0`, ROM1 base
+`0xF8000000`, ROM1 size `0x02000000`, and `firmware_start = 0xFE0C0000`.
+Source inspection confirms a zero ROM0 size skips both ROM0 mapping and file
+loading. These are verified **profile settings in the emulator patch**; normal
+reset and direct-entry execution have not run on this host, so they are not
+validated startup outcomes.
+
+The first startup path contains a ROM-backed BL from `0xFE0C3A6C` to RAM
+address `0x00029898`. The qemu-eos initialization code maps ROM images and
+allocates RAM but contains no model-specific copy that populates this address
+before CPU startup. Consequently a direct-main run may depend on an earlier
+firmware/bootstrap copy. The source region, copy stage, and runtime contents
+remain unverified until an instruction trace reaches that call; do not patch
+the call out.
+
 ## Task structure
 
 No `task` or `task_attr` variant is selected. The entry path calls the
