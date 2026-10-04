@@ -3,11 +3,14 @@ import copy
 import socket
 import tempfile
 import unittest
+import struct
+import subprocess
 from pathlib import Path
 
 from tools.eos2000d.qemu_eos_patch import patch_texts
-from tools.eos2000d.qemu_smoke import find_ordered_markers, run_command, check_startup_report, STARTUP_110_PCS
-from tools.eos2000d.qemu_probe import Gdb, arm_register
+from tools.eos2000d.qemu_smoke import (find_ordered_markers, run_command, check_startup_report,
+                                     STARTUP_110_PCS, RAM_COPY_110, RAM_COPY_110_SHA256)
+from tools.eos2000d.qemu_probe import Gdb, arm_register, verify_ram_copy
 from tools.eos2000d.qemu_workdir import ROM1_110_SHA256
 from tools.eos2000d.qemu_workdir import camera_dir, prepare, launch_command, validate_roms
 
@@ -94,12 +97,35 @@ class StartupReportTests(unittest.TestCase):
     def setUp(self):
         self.report = {
             "returncode": 0, "rom1_sha256": ROM1_110_SHA256,
-            "ram_copy": {"matches_rom_source": True},
+            "ram_copy": {"matches_rom_source": True, "size": 315804,
+                         "ram_sha256": RAM_COPY_110_SHA256,
+                         **{key: hex(value) for key, value in RAM_COPY_110.items()}},
             "stages": [{"pc": pc} for pc in STARTUP_110_PCS],
         }
 
     def test_measured_startup_report_passes(self):
         self.assertTrue(check_startup_report(self.report)[0])
+
+    def test_incomplete_or_corrupt_copy_evidence_rejected(self):
+        for field in self.report['ram_copy']:
+            bad = copy.deepcopy(self.report)
+            del bad['ram_copy'][field]
+            self.assertFalse(check_startup_report(bad)[0], field)
+        for field, value in [('size', 315803), ('ram_sha256', '0' * 64),
+                             ('source', '0xfe9e9c49'), ('end', 'truncated'),
+                             ('destination', None), ('bss_end', []), ('size', True)]:
+            bad = copy.deepcopy(self.report)
+            bad['ram_copy'][field] = value
+            self.assertFalse(check_startup_report(bad)[0], field)
+
+    def test_malformed_reports_fail_closed(self):
+        for value in [None, [], 'truncated', 7]:
+            self.assertFalse(check_startup_report(value)[0])
+        for field, value in [('ram_copy', None), ('ram_copy', []),
+                             ('stages', None), ('stages', [None]), ('returncode', False)]:
+            bad = copy.deepcopy(self.report)
+            bad[field] = value
+            self.assertFalse(check_startup_report(bad)[0], field)
 
     def test_missing_or_out_of_order_stop_fails(self):
         for stages in [self.report["stages"][:-1], list(reversed(self.report["stages"]))]:
@@ -122,6 +148,34 @@ class StartupReportTests(unittest.TestCase):
 
 
 class DebuggerPacketTests(unittest.TestCase):
+    def test_short_ram_copy_cannot_match_only_a_rom_prefix(self):
+        rom = bytearray(0xC00EC)
+        struct.pack_into('<4I', rom, 0xC00DC, 0xF8000100, 0x1900, 0x1908, 0x2000)
+        class ShortDebugger:
+            def memory(self, address, size):
+                return bytes(size - 1)
+        with self.assertRaises(ValueError):
+            verify_ram_copy(ShortDebugger(), bytes(rom))
+
+    def test_complete_synthetic_ram_copy(self):
+        rom = bytearray(0xC00EC)
+        struct.pack_into('<4I', rom, 0xC00DC, 0xF8000100, 0x1900, 0x1908, 0x2000)
+        class Debugger:
+            def memory(self, address, size):
+                return bytes(size)
+        result = verify_ram_copy(Debugger(), bytes(rom))
+        self.assertTrue(result['matches_rom_source'])
+        self.assertEqual(result['size'], 8)
+
+    def test_invalid_copy_bounds_rejected(self):
+        for source, destination, end in [(0xF8000100, 0x1900, 0x1900),
+                                          (0xF8000100, 0x1900, 0x1800),
+                                          (0xF8100000, 0x1900, 0x1908)]:
+            rom = bytearray(0xC00EC)
+            struct.pack_into('<4I', rom, 0xC00DC, source, destination, end, 0x2000)
+            with self.assertRaises(ValueError):
+                verify_ram_copy(None, bytes(rom))
+
     def test_receives_packet_with_ack_prefix(self):
         client, server = socket.socketpair()
         try:
@@ -205,6 +259,34 @@ class QemuWorkdirTests(unittest.TestCase):
             self.assertFalse((camera_dir(root) / "ROM0.BIN").exists())
             self.assertFalse((camera_dir(root) / "ROM1.BIN").exists())
             self.assertTrue(any("MISSING" in item for item in messages))
+
+
+class MinimalBuildTests(unittest.TestCase):
+    def test_existing_output_still_delegates_dependency_checks(self):
+        # Exercise the real wrapper with a synthetic platform, without ARM tools.
+        wrapper = Path('minimal/Makefile.minimal').resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            platform = root / 'platform/TEST.001'
+            platform.mkdir(parents=True)
+            (platform / 'Makefile').write_text(
+                '.PHONY: build/autoexec.bin\n'
+                'build/autoexec.bin:\n'
+                '\tmkdir -p build\n'
+                '\tcp "$(ML_MINIMAL_SOURCE)" build/autoexec.bin\n'
+                '\tcp build/autoexec.bin build/magiclantern.bin\n'
+                '\techo delegated >> calls\n')
+            minimal = root / 'minimal/check'
+            minimal.mkdir(parents=True)
+            (minimal / 'Makefile').write_text(f'include {wrapper}\n')
+            for content in ['first build', 'changed source', 'changed source']:
+                (minimal / 'minimal.c').write_text(content)
+                result = subprocess.run(['make', 'MODEL=TEST'], cwd=minimal,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual((minimal / 'autoexec.bin').read_text(), content)
+                self.assertEqual((minimal / 'magiclantern.bin').read_text(), content)
+            self.assertEqual((platform / 'calls').read_text().splitlines(), ['delegated'] * 3)
 
 
 if __name__ == "__main__":
