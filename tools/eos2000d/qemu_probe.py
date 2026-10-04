@@ -71,22 +71,30 @@ class Gdb:
         self.sock.connect(str(path))
 
     def receive(self, deadline=None):
-        self.sock.settimeout(max(.05, deadline - time.monotonic()) if deadline else 4)
-        while True:
-            prefix = self.sock.recv(1)
-            if not prefix:
-                raise EOFError("GDB connection closed")
-            if prefix == b"$":
-                break
-        data = bytearray()
-        while True:
+        deadline = time.monotonic() + 4 if deadline is None else deadline
+
+        def read_byte():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise socket.timeout("GDB receive deadline exceeded")
+            self.sock.settimeout(remaining)
             char = self.sock.recv(1)
             if not char:
-                raise EOFError("GDB packet truncated")
+                raise EOFError("GDB packet truncated or connection closed")
+            return char
+
+        while read_byte() != b"$":
+            pass
+        data = bytearray()
+        while True:
+            char = read_byte()
             if char == b"#":
                 break
+            # Pinned qemu-eos gdbstub.c advertises PacketSize=1000 (hex).
+            if len(data) >= 4096:
+                raise ValueError("GDB packet exceeds supported 4096-byte limit")
             data.extend(char)
-        checksum = self.sock.recv(1) + self.sock.recv(1)
+        checksum = read_byte() + read_byte()
         if checksum != f"{sum(data) % 256:02x}".encode():
             raise ValueError("GDB checksum mismatch")
         self.sock.sendall(b"+")
