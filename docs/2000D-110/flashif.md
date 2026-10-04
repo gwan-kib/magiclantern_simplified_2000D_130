@@ -336,3 +336,14 @@ feature and pre-ROM policy gates pass; reference-camera build is checked by CI.
 AI provenance: Codex authored the opt-in C helper/glue, patcher changes,
 synthetic tests, read-only debugger observers and analysis/documentation.
 No physical camera/SD action or ML payload/injection was performed.
+
+## Downstream handshake boundary
+
+**QEMU + Experiment:** the repeated post-startup investigation is documented
+in [post-startup.md](post-startup.md). The first unserved request is an
+Intercom send, not the PowerMgr idle instruction: input packet 04 02 00 00
+queues a C022D0C4 request which the model's zero initial latch does not
+recognize as a falling edge. Startup completion bit 2 remains pending.
+No correction was made without initial-state/protocol evidence. This
+separate handshake limitation does not resolve the physical FlashIF
+identity in KI-019 or validate C2 25 39 as installed hardware.

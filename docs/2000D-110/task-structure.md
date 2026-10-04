@@ -1,6 +1,6 @@
 # EOS 2000D firmware 1.1.0 task structures
 
-**Status: unresolved. No task or task-attribute variant is selected.** A
+**Status: limited observation fields qualified; no task or task-attribute variant selected.** A
 compilable guess would create a risk of corrupting DryOS task state.
 
 | Field or behavior | Status | Evidence still needed |
@@ -44,3 +44,29 @@ TaskMain FE0C12AC, shared manager FE2C1438, PowerMgr FE2BA2F4 and HotPlug
 FE0C69DC. These are call/entry observations, not task-field layout evidence.
 No CONFIG_TASK_STRUCT or CONFIG_TASK_ATTR variant is selected. In particular,
 manager creation does not establish successful property or MPU initialization.
+
+## Canonical creation and scheduler cross-check
+
+**QEMU + Experiment**, firmware 1.1.0 only: the two 120-second runs in
+[post-startup.md](post-startup.md) qualify these observation fields against
+the canonical bootstrap copy (SHA-256 recorded there). This supersedes the
+historical unresolved rows above for these limited observations.
+
+| Field | Offset / address | Canonical and runtime qualification |
+|---|---|---|
+| Current task | RAM `31170` | Stores at `1980`, `1D28`, `1D94` select R4; observer steps the store and checks the committed pointer |
+| Entry / argument | TCB `+0C` / `+10` | Creation descriptor `+04` / `+08`; dispatch loads at `41F4` / `41F8`, branch through `41FC`; observed entry agrees |
+| Allocated stack base / size | `+1C` / `+20` | Allocation/setup and descriptor size `+10` cross-checked at completed creation `43D8`; full stack bounds/context frame still unresolved |
+| Name pointer | `+24` | Descriptor `+14`; bounded ASCII name qualified only by matching creation fields, not a printable-pointer scan |
+| ID | `+40` | Assignment and ID lookup stride `54` (21 words) cross-check |
+| State byte / wait kind | `+49` / `+4D` | Wait linkage at `1B34`, wake unlink at `19CC`; observed kind 1 for kernel semaphore and 2 for HotPlug flag |
+| Wait object | `+14` | Wait linkage associates each task with its live queue/semaphore/flag object |
+| Saved SP | `+50` | Scheduler save/restore use; does not qualify the full saved context structure |
+
+All ten created tasks entered in both runs. Manager names sharing `FE2C1438`
+are distinguished by their qualified TCB identities. Stack allocation address
+is not automatically the public API's stack-bottom field. Linkage, CPU context,
+`task_attr`, physical reset state and structure variant remain unresolved.
+No `CONFIG_TASK_STRUCT_V*`, `CONFIG_TASK_ATTR_STRUCT_V*`, active stub or
+firmware-1.3.0 value is selected. Follow [post-startup.md](post-startup.md) for
+creation callers, task wait objects, IRQ observations and limitations.

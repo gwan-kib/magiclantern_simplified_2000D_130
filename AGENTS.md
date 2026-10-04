@@ -473,3 +473,15 @@ Before handing off work, confirm:
 - issue status matches reality;
 - new blockers are documented;
 - README / porting docs reflect any major phase-state change.
+
+## Firmware-110 post-startup evidence boundary
+
+Read `docs/2000D-110/post-startup.md` before extending the experimental task
+observer. Canonical creation/dispatch/store evidence now qualifies limited
+TCB observation fields and current-task slot 31170 for 1.1.0 analysis; no
+physical structure variant or 1.3.0 stub is selected. PowerMgr repeatedly
+wakes; do not bypass its WFI or HotPlug's timed flag wait. The first unserved
+Intercom request is a separate initial-state/handshake limitation; do not
+inject a reply, event or guessed request-line state to call it fixed.
+Keep all raw captures private, all downstream results QEMU + Experiment,
+KI-019 open, and the physical camera/card and active 1.3.0 platform untouched.

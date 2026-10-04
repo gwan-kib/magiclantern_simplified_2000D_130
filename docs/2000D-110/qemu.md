@@ -197,3 +197,15 @@ All behavior after supplying the ID is **QEMU + Experiment**. See
 [flashif.md](flashif.md#experimental-c2-25-39-hypothesis-2026-10-04) for state,
 limits, complete reproduction, geometry, registers and protocol comparison.
 No ROM bytes, assertion, accepted-ID comparison or ML payload are modified.
+
+## Post-startup task and handshake tracing
+
+**QEMU + Experiment:** [post-startup.md](post-startup.md) records repeated
+30/60/120-second runs, qualified task fields, scheduler/IRQ activity and the
+first unserved Intercom request. PowerMgr repeatedly wakes; Startup awaits
+mask 2. The initial request writes 83DC00 to C022D0C4, but the model's zero
+latch has no falling edge and no MPU response follows. No model behavior
+was changed or event injected. Correct initial state remains unresolved.
+The opt-in `--task-trace --sample-interval 5` enables private observations
+and native MPU logging; `qemu_task_report.py` validates their summaries.
+No full boot, GUI, storage mount or physical identity is established.
