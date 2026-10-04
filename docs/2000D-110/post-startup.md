@@ -258,3 +258,15 @@ This observer, parser, tests and analysis were authored by Codex under the
 user's explicit diagnostic-tooling request. Independent review remains
 necessary. No ML injection, camera-ready payload, installer, boot flag,
 physical camera/card access or active firmware-1.3.0 change is included.
+
+## Known Issues documentation status
+
+KI-020 is recorded in the repository tracker and has been appended as blocked
+in the [implementation plan's Known Issues tab](https://docs.google.com/document/d/1N2eZxIXB4-OioaZRMp44ALhHRFKak4nZpuIrtzg7mAU/edit?tab=t.1ov6ghiz2a7f),
+with links to [issue #41](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/issues/41)
+and [PR #42](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/pull/42).
+Connector readback verified the saved finding, QEMU + Experiment classification
+and exit criterion, with existing tabs, content and formatting preserved.
+The earlier document-append-pending report is superseded. KI-019 remains open;
+PR #42 remains unmerged. This documentation update adds no new runtime evidence
+and makes no emulator correction.

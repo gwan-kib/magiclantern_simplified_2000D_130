@@ -146,11 +146,14 @@ No model fix is justified without independently established initial state and
 2000D protocol semantics. Exit criterion: guest-triggered transfer, real
 response, `FE0C3A10` callback and Startup advancement in two bounded runs.
 PowerMgr WFI and HotPlug timed waits remain intact. See
-[the detailed observation](2000D-110/post-startup.md) and PR #42.
+[the detailed observation](2000D-110/post-startup.md) and
+[PR #42](https://github.com/gwan-kib/magiclantern_simplified_2000D_130/pull/42).
 
 The preceding 19-item audit remains a historical snapshot. This separate
 finding does not close KI-019, verify physical flash identity, select a task
-structure variant, or prove Canon/ML/GUI boot. The external Known Issues
-append is pending because automatic approval review rejected the required
-read-only local copy after interpreting historical physical-test wording as
-a mutation; no Google Doc change was made.
+structure variant, or prove Canon/ML/GUI boot. KI-020 is now appended as
+blocked in the [external Known Issues tab](https://docs.google.com/document/d/1N2eZxIXB4-OioaZRMp44ALhHRFKak4nZpuIrtzg7mAU/edit?tab=t.1ov6ghiz2a7f),
+with issue #41 and PR #42 links. Connector readback verified the finding,
+experimental classification and exit criterion; the existing tab structure,
+content and formatting were preserved. KI-019 remains open and PR #42 remains
+unmerged. The former document-append blocker is resolved.
